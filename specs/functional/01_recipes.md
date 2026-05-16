@@ -101,7 +101,8 @@ composite itself and are not rolled up.
 - Ingredient amounts on a recipe are always stored as the amount **for one
   serving**.
 - The app has an application-level **default serving size** (a positive
-  integer, configurable in settings).
+  integer, configurable in settings). The v1 default is **2**; a
+  settings surface to change it lands with later phases.
 - When viewing a recipe, the user sees ingredient amounts scaled to a chosen
   serving count. The chosen count starts at the app default and can be changed
   on the fly for the current view.

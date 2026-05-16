@@ -3,6 +3,7 @@
         "title": "Was essen wir heute"
     },
     "nav": {
+        "recipes": "Rezepte",
         "ingredients": "Zutaten",
         "settings": "Einstellungen",
         "users": "Benutzer",
@@ -162,6 +163,102 @@
         "countUnitsInvalid": "Stückeinheiten brauchen einen Namen und eine positive Masse pro Einheit und dürfen pro Eintrag nicht doppelt vorkommen.",
         "invalidIngredient": "Ungültige Zutaten-ID.",
         "ingredientNotFound": "Zutat nicht gefunden.",
-        "insertFailed": "Einfügen fehlgeschlagen."
+        "insertFailed": "Einfügen fehlgeschlagen.",
+        "titleRequired": "Bitte einen Titel in mindestens einer Sprache angeben.",
+        "pickCuisine": "Küche wählen.",
+        "activeTimeInvalid": "Aktive Zeit muss eine nicht-negative ganze Zahl in Minuten sein.",
+        "waitTimeInvalid": "Wartezeit muss eine nicht-negative ganze Zahl in Minuten sein.",
+        "ingredientNameRequired": "Jede Zutatenzeile braucht einen Namen.",
+        "ingredientAmountInvalid": "Mengenangabe muss eine positive Zahl sein.",
+        "stepEmpty": "Schritt darf nicht leer sein.",
+        "invalidRecipe": "Ungültige Rezept-ID.",
+        "recipeNotFound": "Rezept nicht gefunden."
+    },
+    "recipes": {
+        "title": "Rezepte",
+        "new": "Neu",
+        "searchPlaceholder": "Titel durchsuchen …",
+        "cuisine": "Küche",
+        "allCuisines": "Alle Küchen",
+        "emptyAll": "Noch keine Rezepte.",
+        "emptySearch": "Keine Rezepte passen zu dieser Suche.",
+        "unnamed": "(ohne Titel)",
+        "untranslated": "nicht übersetzt",
+        "timeSummary": "{active} Min aktiv · {wait} Min warten · {total} Min gesamt",
+        "units": {
+            "categories": {
+                "mass": "Masse",
+                "volume": "Volumen",
+                "count": "Stückzahl"
+            },
+            "labels": {
+                "g": "g",
+                "kg": "kg",
+                "oz": "oz",
+                "lb": "lb",
+                "ml": "ml",
+                "l": "l",
+                "tsp": "TL",
+                "tbsp": "EL",
+                "cup": "Tasse",
+                "piece": "Stück",
+                "clove": "Zehe",
+                "slice": "Scheibe",
+                "leaf": "Blatt",
+                "sprig": "Zweig",
+                "bunch": "Bund",
+                "can": "Dose",
+                "jar": "Glas",
+                "pinch": "Prise",
+                "dash": "Spritzer"
+            }
+        },
+        "form": {
+            "newTitle": "Neues Rezept",
+            "saveCreate": "Anlegen",
+            "saveUpdate": "Speichern",
+            "saving": "Wird gespeichert …",
+            "cancel": "Abbrechen",
+            "copy": "Kopieren",
+            "delete": "Löschen",
+            "confirmDelete": "Dieses Rezept löschen?",
+            "saved": "Rezept gespeichert.",
+            "titles": {
+                "title": "Titel",
+                "intro": "Mindestens eine Sprache ist erforderlich.",
+                "de": "Deutsch",
+                "en": "Englisch"
+            },
+            "classification": {
+                "title": "Klassifikation",
+                "cuisine": "Küche",
+                "activeTime": "Aktive Zeit (Minuten)",
+                "waitTime": "Wartezeit (Minuten)",
+                "waitTimeHint": "z. B. Marinieren, Ruhen lassen, über Nacht ziehen"
+            },
+            "notes": {
+                "title": "Notizen",
+                "intro": "Hinweise für die Köchin / den Koch (Substitutionen, Warnungen).",
+                "de": "Deutsch",
+                "en": "Englisch"
+            },
+            "ingredients": {
+                "title": "Zutaten",
+                "intro": "Mengen pro Portion. Tippe einen Namen, um Vorschläge aus dem Zutatenkatalog zu sehen.",
+                "amount": "Menge",
+                "unit": "Einheit",
+                "name": "Name",
+                "remove": "Entfernen",
+                "add": "Zutat hinzufügen"
+            },
+            "steps": {
+                "title": "Schritte",
+                "intro": "Ein Schritt pro Zeile. Beide Sprachen optional, mindestens eine pro Schritt.",
+                "de": "Deutsch",
+                "en": "Englisch",
+                "remove": "Entfernen",
+                "add": "Schritt hinzufügen"
+            }
+        }
     }
 }

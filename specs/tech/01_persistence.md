@@ -86,7 +86,12 @@ exact column names and types are settled at implementation.
   within an entry** (case-insensitive). Rows cascade-delete with the
   parent entry.
 - **cuisines** — controlled vocabulary. Columns: cuisine key (PK string),
-  `label_de`, `label_en`.
+  `label_de`, `label_en`. **Seeded** in the recipes migration with a
+  v1 starter set (`italian`, `thai`, `german`, `french`, `mexican`,
+  `indian`, `american`, `mediterranean`, `japanese`, `chinese`, `greek`,
+  `spanish`, `middle-eastern`, `vietnamese`, `other`). New cuisines are
+  added by appending to a follow-up migration; no in-app cuisine-
+  management surface in v1.
 - **sessions** — server-side sessions for authenticated users. See
   `04_auth.md` for the column shape.
 - **spoonacular_cache** — cached Spoonacular API responses keyed by

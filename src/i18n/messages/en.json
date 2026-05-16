@@ -3,6 +3,7 @@
         "title": "Was essen wir heute"
     },
     "nav": {
+        "recipes": "Recipes",
         "ingredients": "Ingredients",
         "settings": "Settings",
         "users": "Users",
@@ -162,6 +163,102 @@
         "countUnitsInvalid": "Count units must have a name and a positive grams-per-unit, and must not repeat within an entry.",
         "invalidIngredient": "Invalid ingredient id.",
         "ingredientNotFound": "Ingredient not found.",
-        "insertFailed": "Insert failed."
+        "insertFailed": "Insert failed.",
+        "titleRequired": "Provide a title in at least one language.",
+        "pickCuisine": "Pick a cuisine.",
+        "activeTimeInvalid": "Active time must be a non-negative integer (minutes).",
+        "waitTimeInvalid": "Wait time must be a non-negative integer (minutes).",
+        "ingredientNameRequired": "Each ingredient row needs a name.",
+        "ingredientAmountInvalid": "Amount must be a positive number.",
+        "stepEmpty": "Step cannot be empty.",
+        "invalidRecipe": "Invalid recipe id.",
+        "recipeNotFound": "Recipe not found."
+    },
+    "recipes": {
+        "title": "Recipes",
+        "new": "New",
+        "searchPlaceholder": "Search titles…",
+        "cuisine": "Cuisine",
+        "allCuisines": "All cuisines",
+        "emptyAll": "No recipes yet.",
+        "emptySearch": "No recipes match that search.",
+        "unnamed": "(untitled)",
+        "untranslated": "untranslated",
+        "timeSummary": "{active} min active · {wait} min wait · {total} min total",
+        "units": {
+            "categories": {
+                "mass": "Mass",
+                "volume": "Volume",
+                "count": "Count"
+            },
+            "labels": {
+                "g": "g",
+                "kg": "kg",
+                "oz": "oz",
+                "lb": "lb",
+                "ml": "ml",
+                "l": "l",
+                "tsp": "tsp",
+                "tbsp": "tbsp",
+                "cup": "cup",
+                "piece": "piece",
+                "clove": "clove",
+                "slice": "slice",
+                "leaf": "leaf",
+                "sprig": "sprig",
+                "bunch": "bunch",
+                "can": "can",
+                "jar": "jar",
+                "pinch": "pinch",
+                "dash": "dash"
+            }
+        },
+        "form": {
+            "newTitle": "New recipe",
+            "saveCreate": "Create",
+            "saveUpdate": "Save",
+            "saving": "Saving…",
+            "cancel": "Cancel",
+            "copy": "Copy",
+            "delete": "Delete",
+            "confirmDelete": "Delete this recipe?",
+            "saved": "Recipe saved.",
+            "titles": {
+                "title": "Titles",
+                "intro": "At least one language is required.",
+                "de": "German",
+                "en": "English"
+            },
+            "classification": {
+                "title": "Classification",
+                "cuisine": "Cuisine",
+                "activeTime": "Active time (minutes)",
+                "waitTime": "Wait time (minutes)",
+                "waitTimeHint": "e.g. marinating, resting, overnight soaking"
+            },
+            "notes": {
+                "title": "Notes",
+                "intro": "Cook's notes (substitutions, warnings, tips).",
+                "de": "German",
+                "en": "English"
+            },
+            "ingredients": {
+                "title": "Ingredients",
+                "intro": "Amounts are per single serving. Type a name to see suggestions from the catalog.",
+                "amount": "Amount",
+                "unit": "Unit",
+                "name": "Name",
+                "remove": "Remove",
+                "add": "Add ingredient"
+            },
+            "steps": {
+                "title": "Steps",
+                "intro": "One step per row. Both languages optional, at least one per step.",
+                "de": "German",
+                "en": "English",
+                "remove": "Remove",
+                "add": "Add step"
+            }
+        }
     }
 }

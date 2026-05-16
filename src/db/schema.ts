@@ -9,13 +9,24 @@ import {
     uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 import {
+    type CuisineKey,
     type IngredientAliasId,
     type IngredientCountUnitId,
     type IngredientId,
     newIngredientAliasId,
     newIngredientCountUnitId,
     newIngredientId,
+    newRecipeComponentId,
+    newRecipeId,
+    newRecipeIngredientId,
+    newRecipeRatingId,
+    newRecipeStepId,
     newUserId,
+    type RecipeComponentId,
+    type RecipeId,
+    type RecipeIngredientId,
+    type RecipeRatingId,
+    type RecipeStepId,
     type SessionId,
     type UserId,
 } from './ids'
@@ -133,6 +144,162 @@ export const centralIngredientCountUnits = sqliteTable(
         uniqueIndex('central_ingredient_count_units_entry_unit_unique').on(
             table.centralIngredientId,
             sql`lower(${table.unit})`,
+        ),
+    ],
+)
+
+export const cuisines = sqliteTable('cuisines', {
+    key: text('key').primaryKey().$type<CuisineKey>(),
+    labelDe: text('label_de').notNull(),
+    labelEn: text('label_en').notNull(),
+})
+
+export const recipes = sqliteTable(
+    'recipes',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<RecipeId>()
+            .$defaultFn(() => newRecipeId()),
+        titleDe: text('title_de'),
+        titleEn: text('title_en'),
+        notesDe: text('notes_de'),
+        notesEn: text('notes_en'),
+        cuisineKey: text('cuisine_key').notNull().$type<CuisineKey>(),
+        activeTimeMinutes: integer('active_time_minutes').notNull(),
+        waitTimeMinutes: integer('wait_time_minutes').notNull().default(0),
+        source: text('source', {
+            enum: ['manual', 'spoonacular', 'llm-chat'],
+        }).notNull(),
+        sourceIdentifier: text('source_identifier'),
+        createdAt: timestampMs('created_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+        updatedAt: timestampMs('updated_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.cuisineKey],
+            foreignColumns: [cuisines.key],
+        }),
+        index('recipes_cuisine_idx').on(table.cuisineKey),
+    ],
+)
+
+export const recipeSteps = sqliteTable(
+    'recipe_steps',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<RecipeStepId>()
+            .$defaultFn(() => newRecipeStepId()),
+        recipeId: text('recipe_id').notNull().$type<RecipeId>(),
+        position: integer('position').notNull(),
+        textDe: text('text_de'),
+        textEn: text('text_en'),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.recipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('cascade'),
+        uniqueIndex('recipe_steps_recipe_position_unique').on(
+            table.recipeId,
+            table.position,
+        ),
+    ],
+)
+
+export const recipeIngredients = sqliteTable(
+    'recipe_ingredients',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<RecipeIngredientId>()
+            .$defaultFn(() => newRecipeIngredientId()),
+        recipeId: text('recipe_id').notNull().$type<RecipeId>(),
+        position: integer('position').notNull(),
+        amount: real('amount'),
+        unit: text('unit'),
+        name: text('name').notNull(),
+        centralIngredientId: text(
+            'central_ingredient_id',
+        ).$type<IngredientId>(),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.recipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.centralIngredientId],
+            foreignColumns: [centralIngredients.id],
+        }).onDelete('set null'),
+        uniqueIndex('recipe_ingredients_recipe_position_unique').on(
+            table.recipeId,
+            table.position,
+        ),
+    ],
+)
+
+export const recipeComponents = sqliteTable(
+    'recipe_components',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<RecipeComponentId>()
+            .$defaultFn(() => newRecipeComponentId()),
+        parentRecipeId: text('parent_recipe_id').notNull().$type<RecipeId>(),
+        childRecipeId: text('child_recipe_id').notNull().$type<RecipeId>(),
+        position: integer('position').notNull(),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.parentRecipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.childRecipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('restrict'),
+        uniqueIndex('recipe_components_parent_position_unique').on(
+            table.parentRecipeId,
+            table.position,
+        ),
+    ],
+)
+
+export const recipeRatings = sqliteTable(
+    'recipe_ratings',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<RecipeRatingId>()
+            .$defaultFn(() => newRecipeRatingId()),
+        recipeId: text('recipe_id').notNull().$type<RecipeId>(),
+        userId: text('user_id').notNull().$type<UserId>(),
+        score: integer('score').notNull(),
+        createdAt: timestampMs('created_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+        updatedAt: timestampMs('updated_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.recipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('cascade'),
+        foreignKey({
+            columns: [table.userId],
+            foreignColumns: [users.id],
+        }).onDelete('cascade'),
+        uniqueIndex('recipe_ratings_recipe_user_unique').on(
+            table.recipeId,
+            table.userId,
         ),
     ],
 )
