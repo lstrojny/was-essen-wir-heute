@@ -110,8 +110,18 @@ composite itself and are not rolled up.
   the app default) so the cook can enter the amounts in their natural
   scale instead of doing per-serving math by hand. On save the entered
   amounts are divided by N before being stored, keeping the per-1-serving
-  invariant intact. Changing N inside the form rescales the visible
-  amount inputs proportionally so per-serving stays constant.
+  invariant intact.
+- Changing N alone does **not** rescale the displayed amounts — it just
+  re-labels them as "for the new N". On save, the per-1-serving value
+  effectively changes (amount / new N). This is the right action when
+  the cook wants to **adjust portion size**: leaving the amounts but
+  saying "this is for fewer servings" makes each serving bigger, and
+  vice versa.
+- An explicit **Apply** action (a button next to the field) does the
+  proportional rescale instead: when the cook wants to **scale the
+  recipe up or down** while keeping per-serving constant, they change N,
+  click Apply, and every amount input scales by `new / previous-applied`.
+  Apply is disabled when N matches the last applied value.
 - When importing a recipe that is expressed for *N* servings, amounts are
   divided by *N* at import time so storage stays normalized.
 

@@ -275,6 +275,8 @@
                 "intro": "Tippe einen Namen, um Vorschläge aus dem Zutatenkatalog zu sehen. Unbekannte Namen werden beim Speichern automatisch dem Katalog hinzugefügt.",
                 "forServingsLeft": "Mengen für",
                 "forServingsRight": "Portionen",
+                "applyServings": "Skalieren",
+                "servingsUnapplied": "Mengen sind aktuell für {applied} Portionen. Mit Skalieren proportional anpassen, oder so lassen, um die Portionsgröße zu ändern.",
                 "amount": "Menge",
                 "unit": "Einheit",
                 "name": "Name",

@@ -275,6 +275,8 @@
                 "intro": "Type a name to see suggestions from the catalog. Unknown names are auto-added to the catalog on save.",
                 "forServingsLeft": "Amounts for",
                 "forServingsRight": "servings",
+                "applyServings": "Scale",
+                "servingsUnapplied": "Amounts are currently for {applied} servings. Click Scale to rescale proportionally, or leave as-is to change the portion size.",
                 "amount": "Amount",
                 "unit": "Unit",
                 "name": "Name",

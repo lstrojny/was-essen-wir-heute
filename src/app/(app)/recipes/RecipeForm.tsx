@@ -132,6 +132,9 @@ export function RecipeForm({
     const [formServings, setFormServingsState] = useState(
         initialValues.formServings,
     )
+    const [appliedFormServings, setAppliedFormServings] = useState(
+        initialValues.formServings,
+    )
     const [ingredients, setIngredients] = useState(initialValues.ingredients)
     const [steps, setSteps] = useState(initialValues.steps)
     const [components, setComponents] = useState(initialValues.components)
@@ -192,14 +195,15 @@ export function RecipeForm({
         setActiveTimeMinutes(next.activeTimeMinutes)
         setWaitTimeMinutes(next.waitTimeMinutes)
         setFormServingsState(next.formServings)
+        setAppliedFormServings(next.formServings)
         setIngredients(next.ingredients)
         setSteps(next.steps)
         setChangedFields(diffFormInitial(previous, next))
     }
 
-    function setFormServings(next: number) {
-        if (next <= 0 || next === formServings) return
-        const ratio = next / formServings
+    function applyFormServings() {
+        if (formServings <= 0 || formServings === appliedFormServings) return
+        const ratio = formServings / appliedFormServings
         setIngredients((prev) =>
             prev.map((row) => {
                 const trimmed = row.amount.trim()
@@ -209,7 +213,7 @@ export function RecipeForm({
                 return { ...row, amount: formatAmountForInput(n * ratio) }
             }),
         )
-        setFormServingsState(next)
+        setAppliedFormServings(formServings)
     }
 
     function recipeLabel(row: {
@@ -670,6 +674,7 @@ export function RecipeForm({
                                 display: 'flex',
                                 gap: 1,
                                 alignItems: 'center',
+                                flexWrap: 'wrap',
                             }}
                         >
                             <Typography variant="body2">
@@ -683,7 +688,7 @@ export function RecipeForm({
                                 onChange={(e) => {
                                     const next = Number(e.target.value)
                                     if (Number.isFinite(next) && next > 0) {
-                                        setFormServings(next)
+                                        setFormServingsState(next)
                                     }
                                 }}
                                 slotProps={{
@@ -694,7 +699,28 @@ export function RecipeForm({
                             <Typography variant="body2">
                                 {t('recipes.form.ingredients.forServingsRight')}
                             </Typography>
+                            <Button
+                                onClick={applyFormServings}
+                                variant="outlined"
+                                size="small"
+                                disabled={formServings === appliedFormServings}
+                            >
+                                {t('recipes.form.ingredients.applyServings')}
+                            </Button>
                         </Box>
+                        {formServings !== appliedFormServings ? (
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                            >
+                                {t(
+                                    'recipes.form.ingredients.servingsUnapplied',
+                                    {
+                                        applied: appliedFormServings,
+                                    },
+                                )}
+                            </Typography>
+                        ) : null}
                         <input
                             type="hidden"
                             name="formServings"
