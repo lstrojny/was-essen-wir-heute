@@ -5,10 +5,13 @@ import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { parseRecipeId } from '@/db/ids'
+import { DEFAULT_FORM_SERVINGS } from '@/recipes/constants'
 import {
     getRecipe,
+    getRolledUpRecipe,
     listCentralIngredientsForPicker,
     listCuisines,
+    listRecipesForComponentPicker,
 } from '@/recipes/queries'
 import { RecipeForm, type RecipeFormInitial } from '../RecipeForm'
 
@@ -36,6 +39,7 @@ export default async function EditRecipePage({
 
     const cuisines = listCuisines()
     const centralIngredients = listCentralIngredientsForPicker()
+    const componentCandidates = listRecipesForComponentPicker(recipe.id)
 
     const initialValues: RecipeFormInitial = {
         id: recipe.id,
@@ -47,8 +51,16 @@ export default async function EditRecipePage({
         activeTimeMinutes: String(recipe.activeTimeMinutes),
         waitTimeMinutes:
             recipe.waitTimeMinutes === 0 ? '' : String(recipe.waitTimeMinutes),
+        formServings: DEFAULT_FORM_SERVINGS,
         ingredients: recipe.ingredients.map((ing) => ({
-            amount: ing.amount === null ? '' : String(ing.amount),
+            amount:
+                ing.amount === null
+                    ? ''
+                    : String(
+                          Math.round(
+                              ing.amount * DEFAULT_FORM_SERVINGS * 1000,
+                          ) / 1000,
+                      ),
             unit: ing.unit ?? '',
             name: ing.name,
             centralIngredientId: ing.centralIngredientId,
@@ -57,7 +69,13 @@ export default async function EditRecipePage({
             textDe: step.textDe ?? '',
             textEn: step.textEn ?? '',
         })),
+        components: recipe.components.map((c) => ({
+            childRecipeId: c.childRecipeId,
+            titleDe: c.childTitleDe,
+            titleEn: c.childTitleEn,
+        })),
     }
+    const rolledUp = getRolledUpRecipe(recipe.id)
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
@@ -66,7 +84,9 @@ export default async function EditRecipePage({
                     initialValues={initialValues}
                     cuisines={cuisines}
                     centralIngredients={centralIngredients}
+                    componentCandidates={componentCandidates}
                     activeLanguage={session.user.language}
+                    rolledUp={rolledUp}
                 />
             </Stack>
         </Container>

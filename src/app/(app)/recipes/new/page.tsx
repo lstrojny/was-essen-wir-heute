@@ -3,9 +3,11 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
+import { DEFAULT_FORM_SERVINGS } from '@/recipes/constants'
 import {
     listCentralIngredientsForPicker,
     listCuisines,
+    listRecipesForComponentPicker,
 } from '@/recipes/queries'
 import { RecipeForm, type RecipeFormInitial } from '../RecipeForm'
 
@@ -18,8 +20,10 @@ const EMPTY: RecipeFormInitial = {
     cuisineKey: '',
     activeTimeMinutes: '',
     waitTimeMinutes: '',
+    formServings: DEFAULT_FORM_SERVINGS,
     ingredients: [],
     steps: [],
+    components: [],
 }
 
 export default async function NewRecipePage() {
@@ -27,6 +31,7 @@ export default async function NewRecipePage() {
     const t = await getTranslations()
     const cuisines = listCuisines()
     const centralIngredients = listCentralIngredientsForPicker()
+    const componentCandidates = listRecipesForComponentPicker(null)
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
@@ -37,7 +42,9 @@ export default async function NewRecipePage() {
                     initialValues={EMPTY}
                     cuisines={cuisines}
                     centralIngredients={centralIngredients}
+                    componentCandidates={componentCandidates}
                     activeLanguage={session.user.language}
+                    rolledUp={null}
                 />
             </Stack>
         </Container>

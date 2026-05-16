@@ -106,6 +106,12 @@ composite itself and are not rolled up.
 - When viewing a recipe, the user sees ingredient amounts scaled to a chosen
   serving count. The chosen count starts at the app default and can be changed
   on the fly for the current view.
+- The recipe form has an **"amounts for N servings"** field (defaulting to
+  the app default) so the cook can enter the amounts in their natural
+  scale instead of doing per-serving math by hand. On save the entered
+  amounts are divided by N before being stored, keeping the per-1-serving
+  invariant intact. Changing N inside the form rescales the visible
+  amount inputs proportionally so per-serving stays constant.
 - When importing a recipe that is expressed for *N* servings, amounts are
   divided by *N* at import time so storage stays normalized.
 

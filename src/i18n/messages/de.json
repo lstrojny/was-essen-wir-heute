@@ -172,7 +172,11 @@
         "ingredientAmountInvalid": "Mengenangabe muss eine positive Zahl sein.",
         "stepEmpty": "Schritt darf nicht leer sein.",
         "invalidRecipe": "Ungültige Rezept-ID.",
-        "recipeNotFound": "Rezept nicht gefunden."
+        "recipeNotFound": "Rezept nicht gefunden.",
+        "componentCycle": "Diese Komponente würde einen Zyklus erzeugen (sie referenziert dieses Rezept bereits).",
+        "componentSelfReference": "Ein Rezept kann sich nicht selbst als Komponente referenzieren.",
+        "formServingsInvalid": "Portionsangabe muss eine positive ganze Zahl sein.",
+        "recipeReferencedByComposites": "Dieses Rezept wird als Komponente verwendet von: {titles}. Bitte zuerst dort entfernen."
     },
     "recipes": {
         "title": "Rezepte",
@@ -244,12 +248,23 @@
             },
             "ingredients": {
                 "title": "Zutaten",
-                "intro": "Mengen pro Portion. Tippe einen Namen, um Vorschläge aus dem Zutatenkatalog zu sehen.",
+                "intro": "Tippe einen Namen, um Vorschläge aus dem Zutatenkatalog zu sehen. Unbekannte Namen werden beim Speichern automatisch dem Katalog hinzugefügt.",
+                "forServingsLeft": "Mengen für",
+                "forServingsRight": "Portionen",
                 "amount": "Menge",
                 "unit": "Einheit",
                 "name": "Name",
                 "remove": "Entfernen",
                 "add": "Zutat hinzufügen"
+            },
+            "components": {
+                "title": "Komponenten",
+                "intro": "Verweise auf andere Rezepte. Beim Anzeigen werden Zutaten und Schritte zusammengeführt.",
+                "addLabel": "Komponente hinzufügen",
+                "remove": "Entfernen",
+                "moveUp": "Nach oben",
+                "moveDown": "Nach unten",
+                "empty": "Keine Komponenten."
             },
             "steps": {
                 "title": "Schritte",
@@ -259,6 +274,13 @@
                 "remove": "Entfernen",
                 "add": "Schritt hinzufügen"
             }
+        },
+        "composed": {
+            "title": "Zusammengeführte Ansicht",
+            "ingredients": "Zutaten (für {servings, plural, one {1 Portion} other {# Portionen}})",
+            "steps": "Schritte",
+            "noIngredients": "Keine Zutaten.",
+            "noSteps": "Keine Schritte."
         }
     }
 }

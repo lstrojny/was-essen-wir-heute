@@ -172,7 +172,11 @@
         "ingredientAmountInvalid": "Amount must be a positive number.",
         "stepEmpty": "Step cannot be empty.",
         "invalidRecipe": "Invalid recipe id.",
-        "recipeNotFound": "Recipe not found."
+        "recipeNotFound": "Recipe not found.",
+        "componentCycle": "This component would create a cycle (it already references this recipe).",
+        "componentSelfReference": "A recipe can't reference itself as a component.",
+        "formServingsInvalid": "Servings must be a positive integer.",
+        "recipeReferencedByComposites": "This recipe is used as a component of: {titles}. Remove those uses first."
     },
     "recipes": {
         "title": "Recipes",
@@ -244,12 +248,23 @@
             },
             "ingredients": {
                 "title": "Ingredients",
-                "intro": "Amounts are per single serving. Type a name to see suggestions from the catalog.",
+                "intro": "Type a name to see suggestions from the catalog. Unknown names are auto-added to the catalog on save.",
+                "forServingsLeft": "Amounts for",
+                "forServingsRight": "servings",
                 "amount": "Amount",
                 "unit": "Unit",
                 "name": "Name",
                 "remove": "Remove",
                 "add": "Add ingredient"
+            },
+            "components": {
+                "title": "Components",
+                "intro": "References to other recipes. On display, ingredients and steps are rolled up.",
+                "addLabel": "Add component",
+                "remove": "Remove",
+                "moveUp": "Move up",
+                "moveDown": "Move down",
+                "empty": "No components."
             },
             "steps": {
                 "title": "Steps",
@@ -259,6 +274,13 @@
                 "remove": "Remove",
                 "add": "Add step"
             }
+        },
+        "composed": {
+            "title": "Composed view",
+            "ingredients": "Ingredients (for {servings, plural, one {1 serving} other {# servings}})",
+            "steps": "Steps",
+            "noIngredients": "No ingredients.",
+            "noSteps": "No steps."
         }
     }
 }

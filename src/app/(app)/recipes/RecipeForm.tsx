@@ -23,15 +23,27 @@ import {
     type RecipeFormState,
     updateRecipeAction,
 } from '@/recipes/actions'
-import type { CentralIngredientOption, CuisineRow } from '@/recipes/queries'
+import type {
+    CentralIngredientOption,
+    CuisineRow,
+    RecipePickerRow,
+} from '@/recipes/queries'
+import type { RolledUpRecipe } from '@/recipes/rollup'
 import {
     isKnownUnit,
     STANDARD_UNIT_OPTIONS,
     type UnitCategory,
     type UnitOption,
 } from '@/recipes/units'
+import { ComposedView } from './ComposedView'
 
 const initial: RecipeFormState = {}
+
+function formatAmountForInput(n: number): string {
+    if (!Number.isFinite(n)) return ''
+    const rounded = Math.round(n * 1000) / 1000
+    return Number.isInteger(rounded) ? String(rounded) : String(rounded)
+}
 
 export type RecipeFormIngredient = {
     amount: string
@@ -45,6 +57,12 @@ export type RecipeFormStep = {
     textEn: string
 }
 
+export type RecipeFormComponent = {
+    childRecipeId: RecipeId
+    titleDe: string | null
+    titleEn: string | null
+}
+
 export type RecipeFormInitial = {
     id: RecipeId | null
     titleDe: string
@@ -54,8 +72,10 @@ export type RecipeFormInitial = {
     cuisineKey: CuisineKey | ''
     activeTimeMinutes: string
     waitTimeMinutes: string
+    formServings: number
     ingredients: RecipeFormIngredient[]
     steps: RecipeFormStep[]
+    components: RecipeFormComponent[]
 }
 
 type PickerOption = {
@@ -69,20 +89,83 @@ export function RecipeForm({
     initialValues,
     cuisines,
     centralIngredients,
+    componentCandidates,
     activeLanguage,
+    rolledUp,
 }: {
     initialValues: RecipeFormInitial
     cuisines: CuisineRow[]
     centralIngredients: CentralIngredientOption[]
+    componentCandidates: RecipePickerRow[]
     activeLanguage: 'de' | 'en'
+    rolledUp: RolledUpRecipe | null
 }) {
     const t = useTranslations()
     const router = useRouter()
     const action =
         initialValues.id === null ? createRecipeAction : updateRecipeAction
     const [state, formAction, pending] = useActionState(action, initial)
+    const [formServings, setFormServingsState] = useState(
+        initialValues.formServings,
+    )
     const [ingredients, setIngredients] = useState(initialValues.ingredients)
     const [steps, setSteps] = useState(initialValues.steps)
+    const [components, setComponents] = useState(initialValues.components)
+
+    function setFormServings(next: number) {
+        if (next <= 0 || next === formServings) return
+        const ratio = next / formServings
+        setIngredients((prev) =>
+            prev.map((row) => {
+                const trimmed = row.amount.trim()
+                if (trimmed === '') return row
+                const n = Number(trimmed.replace(',', '.'))
+                if (Number.isNaN(n)) return row
+                return { ...row, amount: formatAmountForInput(n * ratio) }
+            }),
+        )
+        setFormServingsState(next)
+    }
+
+    function recipeLabel(row: {
+        titleDe: string | null
+        titleEn: string | null
+    }): string {
+        const primary = activeLanguage === 'de' ? row.titleDe : row.titleEn
+        const fallback = activeLanguage === 'de' ? row.titleEn : row.titleDe
+        return primary ?? fallback ?? t('recipes.unnamed')
+    }
+
+    const availableComponents = useMemo(
+        () =>
+            componentCandidates.filter(
+                (c) => !components.some((row) => row.childRecipeId === c.id),
+            ),
+        [componentCandidates, components],
+    )
+
+    function addComponent(row: RecipePickerRow) {
+        setComponents([
+            ...components,
+            {
+                childRecipeId: row.id,
+                titleDe: row.titleDe,
+                titleEn: row.titleEn,
+            },
+        ])
+    }
+
+    function removeComponent(index: number) {
+        setComponents(components.filter((_, i) => i !== index))
+    }
+
+    function moveComponent(index: number, delta: -1 | 1) {
+        const target = index + delta
+        if (target < 0 || target >= components.length) return
+        const next = components.slice()
+        ;[next[index], next[target]] = [next[target], next[index]]
+        setComponents(next)
+    }
 
     const pickerOptions = useMemo<PickerOption[]>(() => {
         return centralIngredients.map((row) => {
@@ -109,8 +192,8 @@ export function RecipeForm({
         field: K,
         value: RecipeFormIngredient[K],
     ) {
-        setIngredients(
-            ingredients.map((row, i) =>
+        setIngredients((prev) =>
+            prev.map((row, i) =>
                 i === index ? { ...row, [field]: value } : row,
             ),
         )
@@ -235,6 +318,100 @@ export function RecipeForm({
                 <Paper sx={{ p: 3 }} variant="outlined">
                     <Stack spacing={2}>
                         <Typography variant="h6">
+                            {t('recipes.form.components.title')}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            {t('recipes.form.components.intro')}
+                        </Typography>
+                        {components.map((row, index) => (
+                            <Box
+                                key={row.childRecipeId}
+                                sx={{
+                                    display: 'flex',
+                                    gap: 1,
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <Typography
+                                    variant="body2"
+                                    color="text.secondary"
+                                    sx={{ minWidth: 24, textAlign: 'right' }}
+                                >
+                                    {index + 1}.
+                                </Typography>
+                                <Typography sx={{ flexGrow: 1 }}>
+                                    {recipeLabel(row)}
+                                </Typography>
+                                <IconButton
+                                    onClick={() => moveComponent(index, -1)}
+                                    disabled={index === 0}
+                                    aria-label={t(
+                                        'recipes.form.components.moveUp',
+                                    )}
+                                    size="small"
+                                >
+                                    ▲
+                                </IconButton>
+                                <IconButton
+                                    onClick={() => moveComponent(index, 1)}
+                                    disabled={index === components.length - 1}
+                                    aria-label={t(
+                                        'recipes.form.components.moveDown',
+                                    )}
+                                    size="small"
+                                >
+                                    ▼
+                                </IconButton>
+                                <IconButton
+                                    onClick={() => removeComponent(index)}
+                                    aria-label={t(
+                                        'recipes.form.components.remove',
+                                    )}
+                                >
+                                    <DeleteIcon />
+                                </IconButton>
+                                <input
+                                    type="hidden"
+                                    name="componentChildId"
+                                    value={row.childRecipeId}
+                                />
+                            </Box>
+                        ))}
+                        {components.length === 0 ? (
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                            >
+                                {t('recipes.form.components.empty')}
+                            </Typography>
+                        ) : null}
+                        <Autocomplete<RecipePickerRow, false, false, false>
+                            options={availableComponents}
+                            value={null}
+                            blurOnSelect
+                            clearOnBlur
+                            onChange={(_, value) => {
+                                if (value) addComponent(value)
+                            }}
+                            getOptionLabel={(option) => recipeLabel(option)}
+                            isOptionEqualToValue={(option, value) =>
+                                option.id === value.id
+                            }
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label={t(
+                                        'recipes.form.components.addLabel',
+                                    )}
+                                />
+                            )}
+                        />
+                    </Stack>
+                </Paper>
+
+                <Paper sx={{ p: 3 }} variant="outlined">
+                    <Stack spacing={2}>
+                        <Typography variant="h6">
                             {t('recipes.form.notes.title')}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
@@ -265,6 +442,41 @@ export function RecipeForm({
                         <Typography variant="body2" color="text.secondary">
                             {t('recipes.form.ingredients.intro')}
                         </Typography>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                gap: 1,
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Typography variant="body2">
+                                {t('recipes.form.ingredients.forServingsLeft')}
+                            </Typography>
+                            <TextField
+                                type="number"
+                                size="small"
+                                inputMode="numeric"
+                                value={formServings}
+                                onChange={(e) => {
+                                    const next = Number(e.target.value)
+                                    if (Number.isFinite(next) && next > 0) {
+                                        setFormServings(next)
+                                    }
+                                }}
+                                slotProps={{
+                                    htmlInput: { min: 1, step: 1 },
+                                }}
+                                sx={{ width: 80 }}
+                            />
+                            <Typography variant="body2">
+                                {t('recipes.form.ingredients.forServingsRight')}
+                            </Typography>
+                        </Box>
+                        <input
+                            type="hidden"
+                            name="formServings"
+                            value={formServings}
+                        />
                         {ingredients.map((row, index) => {
                             const selectedOption = row.centralIngredientId
                                 ? (pickerOptions.find(
@@ -554,6 +766,14 @@ export function RecipeForm({
                     <DeleteButton id={initialValues.id} />
                 ) : null}
             </Stack>
+
+            {rolledUp ? (
+                <ComposedView
+                    recipe={rolledUp}
+                    activeLanguage={activeLanguage}
+                    formServings={formServings}
+                />
+            ) : null}
         </Stack>
     )
 }
@@ -646,20 +866,35 @@ function CopyButton({ id }: { id: RecipeId }) {
 
 function DeleteButton({ id }: { id: RecipeId }) {
     const t = useTranslations()
+    const [state, formAction, pending] = useActionState(
+        deleteRecipeAction,
+        initial,
+    )
     return (
-        <form
-            action={deleteRecipeAction}
-            onSubmit={(e) => {
-                if (!confirm(t('recipes.form.confirmDelete'))) {
-                    e.preventDefault()
-                }
-            }}
-            style={{ marginLeft: 'auto' }}
-        >
-            <input type="hidden" name="id" value={id} />
-            <Button type="submit" color="error" startIcon={<DeleteIcon />}>
-                {t('recipes.form.delete')}
-            </Button>
-        </form>
+        <Stack spacing={1} sx={{ ml: 'auto', alignItems: 'flex-end' }}>
+            <form
+                action={formAction}
+                onSubmit={(e) => {
+                    if (!confirm(t('recipes.form.confirmDelete'))) {
+                        e.preventDefault()
+                    }
+                }}
+            >
+                <input type="hidden" name="id" value={id} />
+                <Button
+                    type="submit"
+                    color="error"
+                    startIcon={<DeleteIcon />}
+                    disabled={pending}
+                >
+                    {t('recipes.form.delete')}
+                </Button>
+            </form>
+            {state.error ? (
+                <Alert severity="error" sx={{ maxWidth: 500 }}>
+                    {state.error}
+                </Alert>
+            ) : null}
+        </Stack>
     )
 }

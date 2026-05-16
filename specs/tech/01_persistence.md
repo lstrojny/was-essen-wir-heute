@@ -121,7 +121,18 @@ Before any insert or update that adds or changes a component reference,
 the application walks the descendant graph of the candidate child and
 verifies the parent does not appear. Walks are short in practice (the
 graph is small and tree-shaped); cycles are reported as a validation
-error and the write is refused.
+error and the write is refused. A recipe referencing itself directly
+as a component is the trivial cycle case and is also rejected.
+
+## Deleting a recipe used as a component
+
+The `recipe_components.child_recipe_id` foreign key is declared
+`ON DELETE RESTRICT`, so the database refuses to delete a recipe that
+is referenced by any composite. The application layer translates this
+into a friendly error that lists the referencing composites by their
+display title (in the active language, with the standard fallback to
+the other language when missing). The user is asked to remove those
+component references first; deletion is otherwise refused.
 
 ## Search
 

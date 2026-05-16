@@ -67,9 +67,18 @@ The list grows organically:
 - The user can add an entry directly from a **"manage ingredients" surface**.
   The surface is available to any authenticated user; managing the catalog
   is not admin-only.
-- When the user types a free-text ingredient that has no match, the UI offers
-  "add '*spring onion*' to the central list". One click creates the entry,
-  asks for role + (optional) conversion data, and links the row.
+- When a recipe is saved, any ingredient row with a free-text name and no
+  central link is **silently auto-linked or auto-created**:
+  - First, a case-insensitive match is attempted against every central
+    entry's canonical name (in both languages) and aliases. If anything
+    matches, the recipe row is linked to that entry.
+  - Otherwise a new central entry is created with the typed name as the
+    canonical in the user's active language (the other language stays
+    empty and shows the "untranslated" badge), role `none`, no
+    conversion data. The user refines role / density / per-unit-mass
+    later in the "manage ingredients" surface.
+  - This is atomic with the recipe save: if the save rolls back, the
+    new central entries roll back too.
 
 Aliases can be added later to merge duplicates discovered after the fact
 (e.g. recognising that "scallion" rows should have been the same as "spring

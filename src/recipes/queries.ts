@@ -1,8 +1,9 @@
-import { asc, eq, like, or, sql } from 'drizzle-orm'
+import { asc, eq, inArray, like, ne, or, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import type {
     CuisineKey,
     IngredientId,
+    RecipeComponentId,
     RecipeId,
     RecipeIngredientId,
     RecipeStepId,
@@ -11,10 +12,12 @@ import {
     centralIngredientAliases,
     centralIngredients,
     cuisines,
+    recipeComponents,
     recipeIngredients,
     recipeSteps,
     recipes,
 } from '@/db/schema'
+import type { RolledUpRecipe } from './rollup'
 
 export type CuisineRow = {
     key: CuisineKey
@@ -98,6 +101,14 @@ export type RecipeStepRow = {
     textEn: string | null
 }
 
+export type RecipeComponentRow = {
+    id: RecipeComponentId
+    position: number
+    childRecipeId: RecipeId
+    childTitleDe: string | null
+    childTitleEn: string | null
+}
+
 export type RecipeDetail = {
     id: RecipeId
     titleDe: string | null
@@ -111,6 +122,7 @@ export type RecipeDetail = {
     sourceIdentifier: string | null
     ingredients: RecipeIngredientRow[]
     steps: RecipeStepRow[]
+    components: RecipeComponentRow[]
 }
 
 export function getRecipe(id: RecipeId): RecipeDetail | null {
@@ -142,6 +154,19 @@ export function getRecipe(id: RecipeId): RecipeDetail | null {
         .where(eq(recipeSteps.recipeId, id))
         .orderBy(asc(recipeSteps.position))
         .all()
+    const components = db
+        .select({
+            id: recipeComponents.id,
+            position: recipeComponents.position,
+            childRecipeId: recipeComponents.childRecipeId,
+            childTitleDe: recipes.titleDe,
+            childTitleEn: recipes.titleEn,
+        })
+        .from(recipeComponents)
+        .innerJoin(recipes, eq(recipeComponents.childRecipeId, recipes.id))
+        .where(eq(recipeComponents.parentRecipeId, id))
+        .orderBy(asc(recipeComponents.position))
+        .all()
     return {
         id: row.id,
         titleDe: row.titleDe,
@@ -155,7 +180,112 @@ export function getRecipe(id: RecipeId): RecipeDetail | null {
         sourceIdentifier: row.sourceIdentifier,
         ingredients,
         steps,
+        components,
     }
+}
+
+export type RecipePickerRow = {
+    id: RecipeId
+    titleDe: string | null
+    titleEn: string | null
+}
+
+export function listRecipesForComponentPicker(
+    excludeId: RecipeId | null,
+): RecipePickerRow[] {
+    const base = db
+        .select({
+            id: recipes.id,
+            titleDe: recipes.titleDe,
+            titleEn: recipes.titleEn,
+        })
+        .from(recipes)
+    const query = excludeId ? base.where(ne(recipes.id, excludeId)) : base
+    return query.orderBy(asc(recipes.titleEn), asc(recipes.titleDe)).all()
+}
+
+export type ParentRecipeRef = {
+    id: RecipeId
+    titleDe: string | null
+    titleEn: string | null
+}
+
+export function findRecipesReferencing(childId: RecipeId): ParentRecipeRef[] {
+    return db
+        .select({
+            id: recipes.id,
+            titleDe: recipes.titleDe,
+            titleEn: recipes.titleEn,
+        })
+        .from(recipeComponents)
+        .innerJoin(recipes, eq(recipeComponents.parentRecipeId, recipes.id))
+        .where(eq(recipeComponents.childRecipeId, childId))
+        .orderBy(asc(recipes.titleEn), asc(recipes.titleDe))
+        .all()
+}
+
+export function findDirectChildrenForMany(parentIds: RecipeId[]): RecipeId[] {
+    if (parentIds.length === 0) return []
+    return db
+        .select({ id: recipeComponents.childRecipeId })
+        .from(recipeComponents)
+        .where(inArray(recipeComponents.parentRecipeId, parentIds))
+        .all()
+        .map((r) => r.id)
+}
+
+export function getRolledUpRecipe(id: RecipeId): RolledUpRecipe | null {
+    const detail = getRecipe(id)
+    if (!detail) return null
+    const components: RolledUpRecipe[] = []
+    for (const c of detail.components) {
+        const child = getRolledUpRecipe(c.childRecipeId)
+        if (child) components.push(child)
+    }
+    const totalActive =
+        detail.activeTimeMinutes +
+        components.reduce((sum, c) => sum + c.totalActiveTimeMinutes, 0)
+    const childMaxWait = components.reduce(
+        (max, c) => Math.max(max, c.totalWaitTimeMinutes),
+        0,
+    )
+    const totalWait = Math.max(detail.waitTimeMinutes, childMaxWait)
+    return {
+        id: detail.id,
+        titleDe: detail.titleDe,
+        titleEn: detail.titleEn,
+        ownIngredients: detail.ingredients,
+        ownSteps: detail.steps,
+        ownActiveTimeMinutes: detail.activeTimeMinutes,
+        ownWaitTimeMinutes: detail.waitTimeMinutes,
+        components,
+        totalActiveTimeMinutes: totalActive,
+        totalWaitTimeMinutes: totalWait,
+    }
+}
+
+export function findCentralIngredientByName(name: string): IngredientId | null {
+    const lowered = name.trim().toLowerCase()
+    if (!lowered) return null
+    const canonicalMatch = db
+        .select({ id: centralIngredients.id })
+        .from(centralIngredients)
+        .where(
+            or(
+                eq(sql`lower(${centralIngredients.canonicalDe})`, lowered),
+                eq(sql`lower(${centralIngredients.canonicalEn})`, lowered),
+            ),
+        )
+        .get()
+    if (canonicalMatch) {
+        return canonicalMatch.id
+    }
+    const aliasMatch = db
+        .select({ id: centralIngredientAliases.centralIngredientId })
+        .from(centralIngredientAliases)
+        .where(eq(sql`lower(${centralIngredientAliases.alias})`, lowered))
+        .get()
+    return aliasMatch?.id ?? null
 }
 
 export type CentralIngredientOption = {
