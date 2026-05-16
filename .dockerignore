@@ -1,0 +1,13 @@
+.git
+.idea
+.next
+.vscode
+node_modules
+data
+*.log
+.env*
+.DS_Store
+README.md
+AGENTS.md
+CLAUDE.md
+specs
