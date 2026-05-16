@@ -1,4 +1,4 @@
-import { asc, eq, inArray, like, ne, or, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, like, ne, or, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import type {
     CuisineKey,
@@ -7,6 +7,7 @@ import type {
     RecipeId,
     RecipeIngredientId,
     RecipeStepId,
+    UserId,
 } from '@/db/ids'
 import {
     centralIngredientAliases,
@@ -14,8 +15,10 @@ import {
     cuisines,
     recipeComponents,
     recipeIngredients,
+    recipeRatings,
     recipeSteps,
     recipes,
+    users,
 } from '@/db/schema'
 import type { RolledUpRecipe } from './rollup'
 
@@ -37,6 +40,11 @@ export function listCuisines(): CuisineRow[] {
         .all()
 }
 
+export type RatingAggregate = {
+    average: number | null
+    count: number
+}
+
 export type RecipeListRow = {
     id: RecipeId
     titleDe: string | null
@@ -45,12 +53,16 @@ export type RecipeListRow = {
     totalActiveTimeMinutes: number
     totalWaitTimeMinutes: number
     isCompleteMeal: boolean
+    ratingAverage: number | null
+    ratingCount: number
+    myRating: number | null
 }
 
 export function listRecipes(
     search: string,
     cuisineKey: CuisineKey | null,
     completeOnly: boolean,
+    viewerId: UserId | null = null,
 ): RecipeListRow[] {
     const trimmed = search.trim()
     const pattern = `%${trimmed.toLowerCase()}%`
@@ -87,14 +99,119 @@ export function listRecipes(
                       : sql.join(conditions, sql` AND `),
               )
     const rows = query.orderBy(asc(recipes.titleEn), asc(recipes.titleDe)).all()
+    if (rows.length === 0) return []
+    const ids = rows.map((r) => r.id)
+    const aggregates = getRatingAggregatesForRecipes(ids)
+    const myRatings = viewerId
+        ? getRatingsByUserForRecipes(viewerId, ids)
+        : null
     return rows.map((r) => {
         const rolled = getRolledUpRecipe(r.id)
+        const agg = aggregates.get(r.id) ?? { average: null, count: 0 }
         return {
             ...r,
             totalActiveTimeMinutes: rolled?.totalActiveTimeMinutes ?? 0,
             totalWaitTimeMinutes: rolled?.totalWaitTimeMinutes ?? 0,
+            ratingAverage: agg.average,
+            ratingCount: agg.count,
+            myRating: myRatings?.get(r.id) ?? null,
         }
     })
+}
+
+export function getRatingAggregatesForRecipes(
+    recipeIds: RecipeId[],
+): Map<RecipeId, RatingAggregate> {
+    const out = new Map<RecipeId, RatingAggregate>()
+    if (recipeIds.length === 0) return out
+    const rows = db
+        .select({
+            recipeId: recipeRatings.recipeId,
+            avg: sql<number>`avg(${recipeRatings.score})`,
+            cnt: count(recipeRatings.id),
+        })
+        .from(recipeRatings)
+        .where(inArray(recipeRatings.recipeId, recipeIds))
+        .groupBy(recipeRatings.recipeId)
+        .all()
+    for (const r of rows) {
+        out.set(r.recipeId, {
+            average: r.cnt > 0 ? r.avg : null,
+            count: r.cnt,
+        })
+    }
+    return out
+}
+
+export function getRatingAggregateForRecipe(
+    recipeId: RecipeId,
+): RatingAggregate {
+    return (
+        getRatingAggregatesForRecipes([recipeId]).get(recipeId) ?? {
+            average: null,
+            count: 0,
+        }
+    )
+}
+
+function getRatingsByUserForRecipes(
+    userId: UserId,
+    recipeIds: RecipeId[],
+): Map<RecipeId, number> {
+    const out = new Map<RecipeId, number>()
+    if (recipeIds.length === 0) return out
+    const rows = db
+        .select({
+            recipeId: recipeRatings.recipeId,
+            score: recipeRatings.score,
+        })
+        .from(recipeRatings)
+        .where(
+            and(
+                eq(recipeRatings.userId, userId),
+                inArray(recipeRatings.recipeId, recipeIds),
+            ),
+        )
+        .all()
+    for (const r of rows) out.set(r.recipeId, r.score)
+    return out
+}
+
+export type RecipeRatingRow = {
+    userId: UserId
+    displayName: string
+    score: number
+}
+
+export function listRatingsForRecipe(recipeId: RecipeId): RecipeRatingRow[] {
+    return db
+        .select({
+            userId: recipeRatings.userId,
+            displayName: users.displayName,
+            score: recipeRatings.score,
+        })
+        .from(recipeRatings)
+        .innerJoin(users, eq(recipeRatings.userId, users.id))
+        .where(eq(recipeRatings.recipeId, recipeId))
+        .orderBy(asc(users.displayName))
+        .all()
+}
+
+export function getMyRatingForRecipe(
+    recipeId: RecipeId,
+    userId: UserId,
+): number | null {
+    const row = db
+        .select({ score: recipeRatings.score })
+        .from(recipeRatings)
+        .where(
+            and(
+                eq(recipeRatings.recipeId, recipeId),
+                eq(recipeRatings.userId, userId),
+            ),
+        )
+        .get()
+    return row?.score ?? null
 }
 
 export type RecipeIngredientRow = {

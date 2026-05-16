@@ -188,7 +188,8 @@
         "spoonacularTransient": "Spoonacular ist gerade nicht erreichbar. Bitte später erneut versuchen.",
         "spoonacularMalformed": "Antwort von Spoonacular war nicht im erwarteten Format.",
         "spoonacularNoKey": "SPOONACULAR_API_KEY ist nicht gesetzt — bitte als Umgebungsvariable konfigurieren.",
-        "spoonacularInvalidId": "Bitte eine gültige Spoonacular-ID oder URL eingeben."
+        "spoonacularInvalidId": "Bitte eine gültige Spoonacular-ID oder URL eingeben.",
+        "ratingScoreInvalid": "Bewertung muss eine ganze Zahl von 1 bis 5 sein."
     },
     "recipes": {
         "title": "Rezepte",
@@ -259,6 +260,15 @@
         "unnamed": "(ohne Titel)",
         "untranslated": "nicht übersetzt",
         "timeSummary": "{active} Min aktiv · {wait} Min warten · {total} Min gesamt",
+        "rating": {
+            "sectionTitle": "Bewertungen",
+            "yourRatingLabel": "Deine Bewertung (1 bis 5 Sterne)",
+            "notRated": "Noch nicht bewertet",
+            "countSuffix": "({count, plural, one {1 Bewertung} other {# Bewertungen}})",
+            "setHint": "Mit {score} Sternen bewerten",
+            "clearHint": "Bewertung entfernen",
+            "editHint": "Bewertung ändern"
+        },
         "units": {
             "categories": {
                 "mass": "Masse",

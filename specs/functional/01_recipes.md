@@ -175,13 +175,47 @@ composite itself and are not rolled up.
 ## Ratings
 
 - Each rating is given by a user account; see `specs/tech/04_auth.md` for
-  the user/account model.
-- Each family member can give the recipe a score from **1 to 5**.
+  the user/account model. Any authenticated, non-disabled user may rate
+  any recipe — there is no separate "family member" role.
+- Each family member can give the recipe an **integer** score from **1
+  to 5**. Half scores are not supported.
 - A rating from a given family member is optional; absence means "not yet
   rated", not zero.
 - The recipe displays both individual scores per family member and an
   aggregate. The aggregate is the **average of the scores that have been
-  given**, ignoring missing ones.
+  given**, ignoring missing ones. The displayed average is rounded to
+  **one decimal place** using the active language's number format (comma
+  in `de`, dot in `en`); the rating count is displayed alongside it.
+- When no rating exists yet, the aggregate area shows a "not yet rated"
+  placeholder instead of a zero.
+
+### Rating UI
+
+- **Combined widget**. A single per-recipe control toggles between two
+  states based on user interaction:
+  - **Idle, no own rating yet** — shows 5 empty interactive stars
+    inviting the user to rate. This is the only state where the
+    aggregate is *not* visible inline (since there is none to show
+    when the user is also the first rater); when other users have
+    rated, the aggregate is shown next to the empty stars as a
+    secondary read-only display.
+  - **Idle, user has rated** — shows the aggregate (filled star row
+    proportional to the average, followed by the numeric average and
+    rating count, e.g. `★★★★☆ 4.3 (3)`).
+  - **Hover** — regardless of whether the user has rated, the widget
+    swaps to interactive 5-star input. The user's current rating is
+    highlighted; hovering a star previews the new value. Clicking a
+    star sets it. Clicking the *currently selected* star clears the
+    rating.
+- The widget appears identically on the recipe **list** (one per row)
+  and on the recipe **detail** page. On detail, individual scores of
+  other users are listed read-only below the widget (display name +
+  star row).
+- **Optimistic updates**: rating actions update the local view
+  immediately and reconcile with the server response. Failures revert
+  and surface an inline error. The aggregate is updated on the next
+  server render after revalidation; transient mismatch between own
+  rating and aggregate is accepted.
 
 ## Open questions
 

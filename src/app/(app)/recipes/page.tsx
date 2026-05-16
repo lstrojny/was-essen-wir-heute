@@ -25,7 +25,7 @@ export default async function RecipesPage({
     const cuisineKey = params.cuisine ? parseCuisineKey(params.cuisine) : null
     const completeOnly = params.complete === '1'
     const cuisines = listCuisines()
-    const rows = listRecipes(q, cuisineKey, completeOnly)
+    const rows = listRecipes(q, cuisineKey, completeOnly, session.user.id)
     const cuisineLabels = Object.fromEntries(
         cuisines.map((c) => [
             c.key,

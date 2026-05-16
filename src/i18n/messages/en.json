@@ -188,7 +188,8 @@
         "spoonacularTransient": "Spoonacular is unreachable right now. Try again later.",
         "spoonacularMalformed": "Spoonacular returned an unexpected response shape.",
         "spoonacularNoKey": "SPOONACULAR_API_KEY is not set — configure it as an env var.",
-        "spoonacularInvalidId": "Please enter a valid Spoonacular ID or URL."
+        "spoonacularInvalidId": "Please enter a valid Spoonacular ID or URL.",
+        "ratingScoreInvalid": "Rating must be an integer between 1 and 5."
     },
     "recipes": {
         "title": "Recipes",
@@ -259,6 +260,15 @@
         "unnamed": "(untitled)",
         "untranslated": "untranslated",
         "timeSummary": "{active} min active · {wait} min wait · {total} min total",
+        "rating": {
+            "sectionTitle": "Ratings",
+            "yourRatingLabel": "Your rating (1 to 5 stars)",
+            "notRated": "Not yet rated",
+            "countSuffix": "({count, plural, one {1 rating} other {# ratings}})",
+            "setHint": "Rate {score} stars",
+            "clearHint": "Clear rating",
+            "editHint": "Change rating"
+        },
         "units": {
             "categories": {
                 "mass": "Mass",

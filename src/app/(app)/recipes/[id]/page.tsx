@@ -8,12 +8,16 @@ import { requireSetupOrSession } from '@/auth/guards'
 import { parseRecipeId } from '@/db/ids'
 import { DEFAULT_FORM_SERVINGS } from '@/recipes/constants'
 import {
+    getMyRatingForRecipe,
+    getRatingAggregateForRecipe,
     getRecipe,
     getRolledUpRecipe,
     listCentralIngredientsForPicker,
     listCuisines,
+    listRatingsForRecipe,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'
+import { AggregateRating, RatingControl } from '../Rating'
 import { RecipeForm, type RecipeFormInitial } from '../RecipeForm'
 
 export default async function EditRecipePage({
@@ -94,6 +98,10 @@ export default async function EditRecipePage({
         }),
     }
     const rolledUp = getRolledUpRecipe(recipe.id)
+    const aggregate = getRatingAggregateForRecipe(recipe.id)
+    const myRating = getMyRatingForRecipe(recipe.id, session.user.id)
+    const allRatings = listRatingsForRecipe(recipe.id)
+    const othersRatings = allRatings.filter((r) => r.userId !== session.user.id)
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
@@ -109,6 +117,43 @@ export default async function EditRecipePage({
                             color="success"
                             size="small"
                         />
+                    ) : null}
+                </Stack>
+                <Stack spacing={1}>
+                    <Typography variant="overline" color="text.secondary">
+                        {t('recipes.rating.sectionTitle')}
+                    </Typography>
+                    <RatingControl
+                        recipeId={recipe.id}
+                        initialScore={myRating}
+                        aggregateAverage={aggregate.average}
+                        aggregateCount={aggregate.count}
+                    />
+                    {othersRatings.length > 0 ? (
+                        <Stack spacing={0.25}>
+                            {othersRatings.map((r) => (
+                                <Stack
+                                    key={r.userId}
+                                    direction="row"
+                                    spacing={1}
+                                    sx={{ alignItems: 'center' }}
+                                >
+                                    <Typography
+                                        variant="caption"
+                                        color="text.secondary"
+                                        sx={{ minWidth: 120 }}
+                                    >
+                                        {r.displayName}
+                                    </Typography>
+                                    <AggregateRating
+                                        average={r.score}
+                                        count={1}
+                                        size="small"
+                                        showCount={false}
+                                    />
+                                </Stack>
+                            ))}
+                        </Stack>
                     ) : null}
                 </Stack>
                 <RecipeForm

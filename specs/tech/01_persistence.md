@@ -70,7 +70,11 @@ exact column names and types are settled at implementation.
   its component recipes. Columns: `parent_recipe_id`, `child_recipe_id`,
   position. Both FKs reference `recipes(id)`. Cycles are forbidden — see
   *Composition cycle detection*.
-- **recipe_ratings** — `(recipe_id, user_id)` unique; score 1–5.
+- **recipe_ratings** — `(recipe_id, user_id)` unique; score 1–5 stored
+  as `INTEGER`. Rows cascade-delete with the parent recipe and with the
+  user. The aggregate (average + count) used by list and detail views
+  is computed by a per-recipe `GROUP BY` over this table, joined onto
+  the recipe row at read time (not denormalized).
 - **central_ingredients** — one row per central entry. Language-
   independent fields: role (enum: `starch`, `vegetable`, `protein`,
   `none`), optional density (g/ml), notes. Per-language canonicals live
