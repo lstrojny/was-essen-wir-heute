@@ -41,6 +41,15 @@ export default async function EditRecipePage({
     const cuisines = listCuisines()
     const centralIngredients = listCentralIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(recipe.id)
+    const candidateTotals = new Map(
+        componentCandidates.map((c) => [
+            c.id,
+            {
+                totalActiveTimeMinutes: c.totalActiveTimeMinutes,
+                totalWaitTimeMinutes: c.totalWaitTimeMinutes,
+            },
+        ]),
+    )
 
     const initialValues: RecipeFormInitial = {
         id: recipe.id,
@@ -71,11 +80,18 @@ export default async function EditRecipePage({
             textDe: step.textDe ?? '',
             textEn: step.textEn ?? '',
         })),
-        components: recipe.components.map((c) => ({
-            childRecipeId: c.childRecipeId,
-            titleDe: c.childTitleDe,
-            titleEn: c.childTitleEn,
-        })),
+        components: recipe.components.map((c) => {
+            const totals = candidateTotals.get(c.childRecipeId) ?? {
+                totalActiveTimeMinutes: 0,
+                totalWaitTimeMinutes: 0,
+            }
+            return {
+                childRecipeId: c.childRecipeId,
+                titleDe: c.childTitleDe,
+                titleEn: c.childTitleEn,
+                ...totals,
+            }
+        }),
     }
     const rolledUp = getRolledUpRecipe(recipe.id)
     return (

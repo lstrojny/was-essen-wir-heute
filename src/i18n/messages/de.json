@@ -269,6 +269,7 @@
                 "activeTime": "Aktive Zeit (Minuten)",
                 "waitTime": "Wartezeit (Minuten)",
                 "waitTimeHint": "z. B. Marinieren, Ruhen lassen, über Nacht ziehen",
+                "totalWithComponents": "Gesamt mit Komponenten: {active} Min aktiv · {wait} Min warten",
                 "isCompleteMeal": "Vollständige Mahlzeit (steht für sich allein)"
             },
             "notes": {

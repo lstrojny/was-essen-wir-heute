@@ -15,6 +15,14 @@ Every recipe has:
   time is hands-on cooking and prep. Wait time is passive (soaking, marinating,
   resting, dough proofing, chilling overnight). Wait time is optional and
   zero for most recipes; total time is the sum and is not stored.
+  - For composites these fields hold the **composite's own** active/wait
+    time only (plating, finishing, a quick pan sauce — work not done by
+    any component). The displayed total (sum / max across components,
+    see *Composition*) is what the cook reads.
+  - The recipe edit form shows the computed total live, just below the
+    own-time inputs, so the cook can see what each component
+    contributes while editing. The total updates as components are
+    added or removed.
 - **Ingredients** — ordered list. Each entry is a structured triple of
   *amount*, *unit*, and *ingredient name* (e.g. `50`, `g`, `flour`). Amounts
   are stored **normalized per single serving**. An entry may omit amount/unit

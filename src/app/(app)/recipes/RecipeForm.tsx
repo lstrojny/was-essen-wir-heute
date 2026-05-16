@@ -72,6 +72,8 @@ export type RecipeFormComponent = {
     childRecipeId: RecipeId
     titleDe: string | null
     titleEn: string | null
+    totalActiveTimeMinutes: number
+    totalWaitTimeMinutes: number
 }
 
 export type RecipeFormInitial = {
@@ -248,6 +250,8 @@ export function RecipeForm({
                 childRecipeId: row.id,
                 titleDe: row.titleDe,
                 titleEn: row.titleEn,
+                totalActiveTimeMinutes: row.totalActiveTimeMinutes,
+                totalWaitTimeMinutes: row.totalWaitTimeMinutes,
             },
         ])
     }
@@ -532,6 +536,32 @@ export function RecipeForm({
                                 sx={{ flex: 1 }}
                             />
                         </Box>
+                        {components.length > 0 ? (
+                            <Typography
+                                variant="caption"
+                                color="text.secondary"
+                            >
+                                {t(
+                                    'recipes.form.classification.totalWithComponents',
+                                    {
+                                        active:
+                                            (Number(activeTimeMinutes) || 0) +
+                                            components.reduce(
+                                                (sum, c) =>
+                                                    sum +
+                                                    c.totalActiveTimeMinutes,
+                                                0,
+                                            ),
+                                        wait: Math.max(
+                                            Number(waitTimeMinutes) || 0,
+                                            ...components.map(
+                                                (c) => c.totalWaitTimeMinutes,
+                                            ),
+                                        ),
+                                    },
+                                )}
+                            </Typography>
+                        ) : null}
                         <FormControlLabel
                             control={
                                 <Checkbox
@@ -1057,6 +1087,18 @@ export function RecipeForm({
                     recipe={rolledUp}
                     activeLanguage={activeLanguage}
                     formServings={formServings}
+                    liveTotalActiveMinutes={
+                        (Number(activeTimeMinutes) || 0) +
+                        components.reduce(
+                            (sum, c) => sum + c.totalActiveTimeMinutes,
+                            0,
+                        )
+                    }
+                    liveTotalWaitMinutes={Math.max(
+                        Number(waitTimeMinutes) || 0,
+                        ...components.map((c) => c.totalWaitTimeMinutes),
+                        0,
+                    )}
                 />
             ) : null}
         </Stack>

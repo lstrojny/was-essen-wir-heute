@@ -42,8 +42,8 @@ export type RecipeListRow = {
     titleDe: string | null
     titleEn: string | null
     cuisineKey: CuisineKey
-    activeTimeMinutes: number
-    waitTimeMinutes: number
+    totalActiveTimeMinutes: number
+    totalWaitTimeMinutes: number
     isCompleteMeal: boolean
 }
 
@@ -60,8 +60,6 @@ export function listRecipes(
             titleDe: recipes.titleDe,
             titleEn: recipes.titleEn,
             cuisineKey: recipes.cuisineKey,
-            activeTimeMinutes: recipes.activeTimeMinutes,
-            waitTimeMinutes: recipes.waitTimeMinutes,
             isCompleteMeal: recipes.isCompleteMeal,
         })
         .from(recipes)
@@ -88,7 +86,15 @@ export function listRecipes(
                       ? conditions[0]
                       : sql.join(conditions, sql` AND `),
               )
-    return query.orderBy(asc(recipes.titleEn), asc(recipes.titleDe)).all()
+    const rows = query.orderBy(asc(recipes.titleEn), asc(recipes.titleDe)).all()
+    return rows.map((r) => {
+        const rolled = getRolledUpRecipe(r.id)
+        return {
+            ...r,
+            totalActiveTimeMinutes: rolled?.totalActiveTimeMinutes ?? 0,
+            totalWaitTimeMinutes: rolled?.totalWaitTimeMinutes ?? 0,
+        }
+    })
 }
 
 export type RecipeIngredientRow = {
@@ -196,6 +202,8 @@ export type RecipePickerRow = {
     id: RecipeId
     titleDe: string | null
     titleEn: string | null
+    totalActiveTimeMinutes: number
+    totalWaitTimeMinutes: number
 }
 
 export function listRecipesForComponentPicker(
@@ -209,7 +217,17 @@ export function listRecipesForComponentPicker(
         })
         .from(recipes)
     const query = excludeId ? base.where(ne(recipes.id, excludeId)) : base
-    return query.orderBy(asc(recipes.titleEn), asc(recipes.titleDe)).all()
+    const rows = query.orderBy(asc(recipes.titleEn), asc(recipes.titleDe)).all()
+    return rows.map((r) => {
+        const rolled = getRolledUpRecipe(r.id)
+        return {
+            id: r.id,
+            titleDe: r.titleDe,
+            titleEn: r.titleEn,
+            totalActiveTimeMinutes: rolled?.totalActiveTimeMinutes ?? 0,
+            totalWaitTimeMinutes: rolled?.totalWaitTimeMinutes ?? 0,
+        }
+    })
 }
 
 export type ParentRecipeRef = {

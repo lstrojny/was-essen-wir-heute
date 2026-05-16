@@ -23,16 +23,22 @@ export function ComposedView({
     recipe,
     activeLanguage,
     formServings,
+    liveTotalActiveMinutes,
+    liveTotalWaitMinutes,
 }: {
     recipe: RolledUpRecipe
     activeLanguage: 'de' | 'en'
     formServings: number
+    liveTotalActiveMinutes?: number
+    liveTotalWaitMinutes?: number
 }) {
     const t = useTranslations()
     const format = useFormatter()
     const sections = flattenSections(recipe)
     const isComposite = recipe.components.length > 0
     const showSectionTitles = isComposite
+    const activeMin = liveTotalActiveMinutes ?? recipe.totalActiveTimeMinutes
+    const waitMin = liveTotalWaitMinutes ?? recipe.totalWaitTimeMinutes
     return (
         <Paper sx={{ p: 3 }} variant="outlined">
             <Stack spacing={2}>
@@ -41,11 +47,9 @@ export function ComposedView({
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                     {t('recipes.timeSummary', {
-                        active: recipe.totalActiveTimeMinutes,
-                        wait: recipe.totalWaitTimeMinutes,
-                        total:
-                            recipe.totalActiveTimeMinutes +
-                            recipe.totalWaitTimeMinutes,
+                        active: activeMin,
+                        wait: waitMin,
+                        total: activeMin + waitMin,
                     })}
                 </Typography>
 

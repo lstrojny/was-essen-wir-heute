@@ -28,7 +28,8 @@ export function RecipeList({
                     activeLanguage === 'de' ? row.titleEn : row.titleDe
                 const display = primary ?? fallback ?? t('recipes.unnamed')
                 const untranslated = primary === null
-                const totalTime = row.activeTimeMinutes + row.waitTimeMinutes
+                const totalTime =
+                    row.totalActiveTimeMinutes + row.totalWaitTimeMinutes
                 return (
                     <Link
                         key={row.id}
@@ -54,8 +55,8 @@ export function RecipeList({
                                     color="text.secondary"
                                 >
                                     {t('recipes.timeSummary', {
-                                        active: row.activeTimeMinutes,
-                                        wait: row.waitTimeMinutes,
+                                        active: row.totalActiveTimeMinutes,
+                                        wait: row.totalWaitTimeMinutes,
                                         total: totalTime,
                                     })}
                                 </Typography>

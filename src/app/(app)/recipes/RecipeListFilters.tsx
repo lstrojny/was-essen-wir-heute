@@ -8,8 +8,8 @@ import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import MenuItem from '@mui/material/MenuItem'
 import TextField from '@mui/material/TextField'
-import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { useState } from 'react'
 import type { CuisineKey } from '@/db/ids'
 import type { CuisineRow } from '@/recipes/queries'
@@ -48,7 +48,14 @@ export function RecipeListFilters({
     }
 
     return (
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box
+            sx={{
+                display: 'flex',
+                gap: 2,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+            }}
+        >
             <form
                 onSubmit={(e) => {
                     e.preventDefault()

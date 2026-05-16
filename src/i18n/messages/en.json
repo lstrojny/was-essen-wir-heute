@@ -268,7 +268,9 @@
                 "cuisine": "Cuisine",
                 "activeTime": "Active time (minutes)",
                 "waitTime": "Wait time (minutes)",
-                "waitTimeHint": "e.g. marinating, resting, overnight soaking"
+                "waitTimeHint": "e.g. marinating, resting, overnight soaking",
+                "totalWithComponents": "Total with components: {active} min active · {wait} min wait",
+                "isCompleteMeal": "Complete meal (stands on its own)"
             },
             "notes": {
                 "title": "Notes",
