@@ -210,7 +210,10 @@
                 "importPaste": "Importieren",
                 "importing": "Importiert …",
                 "previewTitle": "Vorschau",
-                "previewIntro": "Spoonacular liefert nur Englisch. Deutsch bleibt erstmal leer und kann mit der Verfeinern-Aktion ergänzt werden."
+                "previewIntro": "Spoonacular liefert nur Englisch. Deutsch bleibt erstmal leer und kann mit der Verfeinern-Aktion ergänzt werden.",
+                "previewIntroEnriched": "Englisches Spoonacular-Rezept wurde automatisch ins Deutsche übersetzt, Küche zugeordnet und Wartezeit aus den Anweisungen extrahiert. Alle Felder sind editierbar.",
+                "loadingTitle": "Wird angereichert …",
+                "loadingIntro": "Spoonacular-Rezept wird ins Deutsche übersetzt und strukturiert."
             },
             "llm": {
                 "title": "Rezept mit KI importieren",

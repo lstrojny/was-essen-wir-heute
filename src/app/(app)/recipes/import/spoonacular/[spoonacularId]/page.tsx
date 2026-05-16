@@ -4,7 +4,9 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
+import { synthesizedToFormInitial } from '@/app/(app)/recipes/recipe-form-conversion'
 import { requireSetupOrSession } from '@/auth/guards'
+import { enrichSpoonacularImport } from '@/llm/recipe-synthesis'
 import {
     listCentralIngredientsForPicker,
     listCuisines,
@@ -76,14 +78,29 @@ export default async function SpoonacularPreviewPage({
     const cuisines = listCuisines()
     const centralIngredients = listCentralIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(null)
-    const initialValues = spoonacularToFormInitial(detail)
+
+    let initialValues = spoonacularToFormInitial(detail)
+    let enriched = false
+    try {
+        const synth = await enrichSpoonacularImport({
+            detail,
+            cuisineKeys: cuisines.map((c) => c.key),
+            activeLanguage: session.user.language,
+        })
+        initialValues = synthesizedToFormInitial(synth)
+        enriched = true
+    } catch {
+        // Enrichment is best-effort per spec — fall back to un-enriched mapping.
+    }
 
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
                 <Typography variant="h4">{detail.title}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                    {t('recipes.import.spoonacular.previewIntro')}
+                    {enriched
+                        ? t('recipes.import.spoonacular.previewIntroEnriched')
+                        : t('recipes.import.spoonacular.previewIntro')}
                 </Typography>
                 <RecipeForm
                     initialValues={initialValues}

@@ -60,22 +60,28 @@ a single LLM enrichment call. Enrichment is responsible for:
   vocab key (see `06_i18n.md`). Prefer `cuisines[0]` from the Spoonacular
   payload when present; otherwise propose one based on the recipe's
   content.
-- **Ingredient-list matching**: for each ingredient name, suggest a match
-  from the central ingredient list. Linking ingredients to the central
-  list is what enables main-ingredient derivation downstream. When the
-  match creates a new central entry, the enrichment LLM also proposes the
-  canonical name for the language not present in the source data.
 - **Translation**: translate title, notes, and each step text from the
   source language (English for Spoonacular) into the other supported
-  language so the saved recipe is bilingual. See `06_i18n.md`.
+  language so the saved recipe is bilingual. Translate ingredient names
+  into the user's active language. See `06_i18n.md`.
+- **Complete-meal flag**: infer whether the recipe stands as a full meal
+  on its own (see `01_recipes.md`).
+- **Unit normalisation**: convert Spoonacular's unit strings ("cups",
+  "Tablespoons") to the controlled set (`cup`, `tbsp`, …).
+- **Ingredient-list matching** (deferred): the spec also calls for
+  per-row matches against the central ingredient list at this point.
+  v1 leaves the rows unlinked and relies on the auto-link-or-create on
+  save (see `05_ingredients.md`) instead. Revisit when match quality
+  warrants it.
 
 All enrichment outputs are **suggestions**. The preview surfaces them as
 pre-filled but clearly editable so the user can verify each one.
 
 If the enrichment call fails or times out, the preview is shown with
-un-enriched data (active time = total, wait time = 0, cuisine = empty,
-ingredients = free-text and unlinked from the central list). The user can
-fill or correct manually. Import does not fail because of enrichment.
+un-enriched data (active time = total, wait time = 0, cuisine = `other`,
+German fields empty, ingredients = free-text). The user can fill or
+correct manually, or invoke the "Refine with AI" action from the recipe
+edit page. Import does not fail because of enrichment.
 
 ## LLM chat import
 

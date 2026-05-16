@@ -210,7 +210,10 @@
                 "importPaste": "Import",
                 "importing": "Importing…",
                 "previewTitle": "Preview",
-                "previewIntro": "Spoonacular returns English only. The German fields stay empty and can be filled in via the Refine action."
+                "previewIntro": "Spoonacular returns English only. The German fields stay empty and can be filled in via the Refine action.",
+                "previewIntroEnriched": "The English Spoonacular recipe was auto-translated to German, cuisine mapped, and wait time extracted from the instructions. Every field is editable.",
+                "loadingTitle": "Enriching…",
+                "loadingIntro": "Translating the Spoonacular recipe to German and structuring it."
             },
             "llm": {
                 "title": "Import a recipe with AI",

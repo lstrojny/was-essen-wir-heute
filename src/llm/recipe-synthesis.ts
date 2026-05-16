@@ -1,6 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import type { RecipeDetail as SpoonacularRecipe } from '@/spoonacular/types'
 
 const DEFAULT_MODEL =
     process.env.LLM_MODEL_CHAT_SYNTHESIS ?? 'claude-sonnet-4-6'
@@ -160,6 +161,88 @@ export async function synthesizeRecipe(
         schema: recipeSchema,
         system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
         prompt: buildPrompt(input),
+        abortSignal: combineSignals(input.abortSignal),
+    })
+    return object
+}
+
+function filterSpoonacularPayload(detail: SpoonacularRecipe) {
+    return {
+        title: detail.title,
+        cuisines: detail.cuisines ?? [],
+        servings: detail.servings ?? null,
+        readyInMinutes: detail.readyInMinutes ?? null,
+        cookingMinutes: detail.cookingMinutes ?? null,
+        preparationMinutes: detail.preparationMinutes ?? null,
+        extendedIngredients: (detail.extendedIngredients ?? []).map((ing) => ({
+            name: ing.name,
+            amount: ing.amount ?? null,
+            unit: ing.unit ?? null,
+            original: ing.original ?? null,
+        })),
+        analyzedInstructions: (detail.analyzedInstructions ?? []).map(
+            (block) => ({
+                steps: block.steps.map((s) => ({
+                    number: s.number,
+                    step: s.step,
+                })),
+            }),
+        ),
+    }
+}
+
+function buildEnrichmentSystemPrompt(
+    cuisineKeys: readonly string[],
+    activeLanguage: 'de' | 'en',
+): string {
+    const languageName =
+        activeLanguage === 'de' ? 'German (de)' : 'English (en)'
+    return [
+        'You enrich an English-only recipe imported from the Spoonacular API into a fully structured bilingual recipe.',
+        '',
+        'Rules:',
+        '- Always emit title, notes (if there are any), and every step in BOTH German (de) and English (en). The English values come from Spoonacular; you translate them into German faithfully.',
+        `- Ingredient names go ONLY in the user's active language: ${languageName}. The Spoonacular payload has English names; translate them as needed. Never mix English ingredient names into a German recipe.`,
+        `- Choose \`cuisineKey\` from this controlled vocabulary only: ${cuisineKeys.join(', ')}. Prefer the first entry of the payload's \`cuisines\` array if it maps cleanly; otherwise pick based on content. Use "other" only as a last resort.`,
+        "- `intendedServings` should match Spoonacular's `servings` field. Ingredient amounts come from the payload at that scale — keep them as-is (the app divides on save).",
+        '- Use canonical units only: g, kg, oz, lb (mass); ml, l, tsp, tbsp, cup (volume); piece, clove, slice, leaf, sprig, bunch, can, jar, pinch, dash (count). Normalise Spoonacular\'s unit strings ("cups" → "cup", "Tablespoons" → "tbsp"). For "to taste" or amount-less items set amount=null and unit=null.',
+        '- Active vs wait time: scan the instructions and ingredient originals for passive durations ("let rest 1 hour", "soak overnight", "refrigerate 8 hours", "rise for 30 min"). Sum those into `waitTimeMinutes`. Compute `activeTimeMinutes` as the hands-on time only — start from `cookingMinutes + preparationMinutes` if present, else `readyInMinutes` — and SUBTRACT any wait time that was already counted there, so they don\'t double-count. If you cannot tell, treat all of `readyInMinutes` as active.',
+        '- Determine `isCompleteMeal`: true if the recipe stands as a full meal on its own; false for sides, sauces, dressings, components.',
+        '',
+        'Ingredient names must be the BARE CANONICAL NOUN — no qualifiers describing state, preparation, sourcing, or size.',
+        '- DROP form/state qualifiers: fresh, dried, frozen, raw, cooked.',
+        '- DROP preparation qualifiers: minced, chopped, diced, sliced, grated, peeled, crushed.',
+        '- DROP sourcing/quality qualifiers: organic, free-range, extra-virgin, premium.',
+        '- DROP size qualifiers: large, small, medium.',
+        '- KEEP qualifiers that change the substance: "ground beef" ≠ "beef"; "coconut milk" ≠ "coconut"; compound names like "soy sauce" stay.',
+        '- Use the PLURAL form for countable nouns: "Eier" not "Ei", "Zwiebeln" not "Zwiebel", "Onions" not "Onion". Mass / uncountable nouns stay natural ("Mehl", "Milch", "Flour").',
+        '- Preparation instructions belong in the step text, not the ingredient name.',
+    ].join('\n')
+}
+
+export async function enrichSpoonacularImport(input: {
+    detail: SpoonacularRecipe
+    cuisineKeys: readonly string[]
+    activeLanguage: 'de' | 'en'
+    abortSignal?: AbortSignal
+}): Promise<SynthesizedRecipe> {
+    const filtered = filterSpoonacularPayload(input.detail)
+    const userPrompt = [
+        'Spoonacular returned this recipe (English source):',
+        '```json',
+        JSON.stringify(filtered, null, 2),
+        '```',
+        '',
+        'Produce the fully enriched bilingual recipe in the required schema. Apply all the rules from the system prompt: translation, cuisine mapping, wait-time extraction, ingredient name conventions, complete-meal flag, unit normalisation.',
+    ].join('\n')
+    const { object } = await generateObject({
+        model: anthropic(DEFAULT_MODEL),
+        schema: recipeSchema,
+        system: buildEnrichmentSystemPrompt(
+            input.cuisineKeys,
+            input.activeLanguage,
+        ),
+        prompt: userPrompt,
         abortSignal: combineSignals(input.abortSignal),
     })
     return object
