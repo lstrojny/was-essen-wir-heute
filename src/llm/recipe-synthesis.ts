@@ -1,5 +1,5 @@
 import { anthropic } from '@ai-sdk/anthropic'
-import { generateObject } from 'ai'
+import { generateObject, type ModelMessage, streamText } from 'ai'
 import { z } from 'zod'
 import type { RecipeDetail as SpoonacularRecipe } from '@/spoonacular/types'
 
@@ -243,6 +243,61 @@ export async function enrichSpoonacularImport(input: {
             input.activeLanguage,
         ),
         prompt: userPrompt,
+        abortSignal: combineSignals(input.abortSignal),
+    })
+    return object
+}
+
+function buildChatSystemPrompt(activeLanguage: 'de' | 'en'): string {
+    const languageName =
+        activeLanguage === 'de' ? 'German (de)' : 'English (en)'
+    return [
+        'You help a home cook design a recipe to save to their family recipe catalog. The user will chat with you in natural language; you ask clarifying questions (servings, cuisine, dietary constraints, what is on hand) and propose ideas.',
+        '',
+        `Reply in ${languageName} unless the user clearly writes in the other supported language.`,
+        '',
+        'Conversational rules:',
+        '- Keep responses short and concrete; one or two short paragraphs at most.',
+        '- Ask one or two clarifying questions per turn when the brief is vague; never bury the cook in a wall of questions.',
+        '- Propose actual dishes by name when the user has given enough signal. Describe them briefly so the cook can pick or adjust.',
+        '- When the user has converged on a recipe and indicates they want to save it, confirm what you understood in one or two sentences and remind them to click the "Save this recipe" button — DO NOT emit a structured recipe yourself. The app handles the structured emit on the save click.',
+        '- Stay focused on recipe design. Avoid unrelated tangents.',
+    ].join('\n')
+}
+
+export type ChatTextInput = {
+    messages: ModelMessage[]
+    activeLanguage: 'de' | 'en'
+    abortSignal?: AbortSignal
+}
+
+export function chatAboutRecipe(
+    input: ChatTextInput,
+): ReturnType<typeof streamText> {
+    return streamText({
+        model: anthropic(DEFAULT_MODEL),
+        system: buildChatSystemPrompt(input.activeLanguage),
+        messages: input.messages,
+        abortSignal: input.abortSignal,
+    })
+}
+
+export async function synthesizeRecipeFromMessages(input: {
+    messages: ModelMessage[]
+    cuisineKeys: readonly string[]
+    activeLanguage: 'de' | 'en'
+    abortSignal?: AbortSignal
+}): Promise<SynthesizedRecipe> {
+    const finalInstruction: ModelMessage = {
+        role: 'user',
+        content:
+            'Based on our conversation, emit the final structured recipe now. Apply every rule from the system prompt: both-language titles/notes/steps, ingredient names in my active language, plural form for countable nouns, no qualifiers, canonical units, normalised wait vs active time, intendedServings reflecting our conversation.',
+    }
+    const { object } = await generateObject({
+        model: anthropic(DEFAULT_MODEL),
+        schema: recipeSchema,
+        system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
+        messages: [...input.messages, finalInstruction],
         abortSignal: combineSignals(input.abortSignal),
     })
     return object

@@ -194,8 +194,22 @@
         "title": "Recipes",
         "new": "New",
         "importLlm": "Import with AI",
+        "importChat": "Chat with AI",
         "importSpoonacular": "Import from Spoonacular",
         "import": {
+            "chat": {
+                "title": "Design a recipe in chat",
+                "intro": "Tell the AI what you want to cook. It will ask follow-up questions and propose ideas. When you're satisfied, click \"Save this recipe\".",
+                "placeholder": "Send a message to begin — e.g. \"Something quick with lentils for 4\".",
+                "inputPlaceholder": "Your message…",
+                "send": "Send",
+                "stop": "Stop",
+                "saveRecipe": "Save this recipe",
+                "saving": "Structuring…",
+                "cancelSave": "Cancel",
+                "previewTitle": "Preview",
+                "previewIntro": "Review and edit the fields below, then save."
+            },
             "spoonacular": {
                 "title": "Import from Spoonacular",
                 "intro": "Search Spoonacular for a recipe or paste a URL/ID. After import, every field is editable.",

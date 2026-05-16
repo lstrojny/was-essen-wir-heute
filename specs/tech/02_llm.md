@@ -26,15 +26,23 @@ operations, one per call-site:
 - `synthesizeRecipe(prompt, currentRecipe?)` — turn a free-text prompt
   (and optionally an existing structured recipe) into a structured
   recipe in both supported languages.
-  - **Fresh mode** (`currentRecipe` omitted): used by the LLM chat
-    import (see `04_imports.md`). The prompt describes the recipe the
-    user wants to save.
+  - **Fresh mode** (`currentRecipe` omitted): used by the LLM
+    single-shot import Phase A (see `04_imports.md`).
   - **Refine mode** (`currentRecipe` supplied): used by the
     "Refine with AI" action on any recipe (see `01_recipes.md`). The
     prompt describes a change ("make this vegetarian"); the LLM
-    returns the full modified recipe. The system prompt is the same;
-    the user message includes the current recipe JSON plus the
-    change request.
+    returns the full modified recipe.
+- `synthesizeRecipeFromMessages(messages)` — same structured output as
+  `synthesizeRecipe`, but takes a multi-turn chat history instead of a
+  single prompt. Used by the LLM chat import Phase B
+  (see `04_imports.md`) when the user clicks "Save this recipe" at the
+  end of a conversation.
+- `chatAboutRecipe(messages)` — free-form streaming text response.
+  Implements the conversation turns of the chat import: clarifying
+  questions, proposed ideas, "make it lighter". Uses the AI SDK's
+  `streamText` so the UI can render tokens as they arrive. The
+  structured emit happens separately via `synthesizeRecipeFromMessages`.
+- `enrichSpoonacularImport(detail)` — see `04_imports.md`.
 - `translateText(text, from, to)` — used by the on-demand translate
   action in `06_i18n.md`.
 - `proposeIngredientMatches(name, candidates)` — rank central-list

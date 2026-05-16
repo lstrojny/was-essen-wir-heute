@@ -111,13 +111,21 @@ Every field is editable before saving. Ingredient-list matching runs as
 the user reviews; unmatched names auto-link or auto-create per
 `05_ingredients.md`.
 
-### Phase B — multi-turn chat (deferred)
+### Phase B — multi-turn chat (built)
 
-The user opens a chat with the LLM, converses freely (clarifying
-questions, ideas, "make it lighter", "use chicken thighs"), and at the
-end invokes a **"save this recipe"** action that triggers the same
-structured-output emit. This is a UX expansion on top of Phase A and
-shares the same underlying `synthesizeRecipe` operation.
+The user opens a chat with the LLM at `/recipes/import/llm/chat` and
+converses freely (clarifying questions, ideas, "make it lighter", "use
+chicken thighs"). The LLM streams responses, asking questions or
+proposing ideas until the user is satisfied. When the user clicks
+**"Save this recipe"**, the conversation history is sent to a
+`synthesizeRecipeFromMessages` operation (see `specs/tech/02_llm.md`)
+that produces the structured recipe in the same schema as Phase A. The
+preview then surfaces with all fields editable, identical to Phase A.
+
+The chat transcript is **not** persisted with the saved recipe — it
+exists only in client state during the session. Cancellation works at
+both layers: aborting a streaming response stops the stream; aborting
+the save-from-messages call cancels the structured emit.
 
 ### Field mapping
 

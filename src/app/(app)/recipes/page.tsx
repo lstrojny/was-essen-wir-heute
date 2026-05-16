@@ -63,6 +63,14 @@ export default async function RecipesPage({
                         </Button>
                     </Link>
                     <Link
+                        href="/recipes/import/llm/chat"
+                        style={{ textDecoration: 'none' }}
+                    >
+                        <Button variant="outlined">
+                            {t('recipes.importChat')}
+                        </Button>
+                    </Link>
+                    <Link
                         href="/recipes/new"
                         style={{ textDecoration: 'none' }}
                     >
