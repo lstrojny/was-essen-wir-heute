@@ -80,6 +80,14 @@
         "de": "Deutsch",
         "en": "English"
     },
+    "chat": {
+        "title": "KI-Assistent",
+        "subtitle": "Fragen zu deinen Rezepten und Zutaten.",
+        "placeholder": "Frag etwas über deine Rezepte, Zutaten oder Bewertungen.",
+        "inputPlaceholder": "Nachricht …",
+        "send": "Senden",
+        "stop": "Stopp"
+    },
     "roles": {
         "admin": "Admin",
         "user": "Benutzer"
@@ -194,23 +202,8 @@
     "recipes": {
         "title": "Rezepte",
         "new": "Neu",
-        "importLlm": "Mit KI importieren",
-        "importChat": "Mit KI chatten",
         "importSpoonacular": "Aus Spoonacular importieren",
         "import": {
-            "chat": {
-                "title": "Rezept im Chat entwickeln",
-                "intro": "Sag der KI, was du kochen möchtest. Sie stellt Rückfragen und schlägt Ideen vor. Wenn du zufrieden bist, klicke auf Rezept speichern.",
-                "placeholder": "Schreib eine Nachricht, um zu beginnen — z. B. etwas Schnelles mit Linsen für 4 Personen.",
-                "inputPlaceholder": "Deine Nachricht …",
-                "send": "Senden",
-                "stop": "Stopp",
-                "saveRecipe": "Rezept speichern",
-                "saving": "Wird strukturiert …",
-                "cancelSave": "Abbrechen",
-                "previewTitle": "Vorschau",
-                "previewIntro": "Prüfe und bearbeite die Felder unten, dann speichern."
-            },
             "spoonacular": {
                 "title": "Aus Spoonacular importieren",
                 "intro": "Such ein Rezept bei Spoonacular oder füg eine URL/ID ein. Nach dem Import lassen sich alle Felder bearbeiten.",
@@ -229,26 +222,7 @@
                 "previewIntroEnriched": "Englisches Spoonacular-Rezept wurde automatisch ins Deutsche übersetzt, Küche zugeordnet und Wartezeit aus den Anweisungen extrahiert. Alle Felder sind editierbar.",
                 "loadingTitle": "Wird angereichert …",
                 "loadingIntro": "Spoonacular-Rezept wird ins Deutsche übersetzt und strukturiert."
-            },
-            "llm": {
-                "title": "Rezept mit KI importieren",
-                "intro": "Beschreibe das Rezept, das du speichern möchtest. Die KI strukturiert es; danach kannst du jedes Feld bearbeiten.",
-                "promptTitle": "Beschreibung",
-                "promptPlaceholder": "z. B. \"Schnelles Pad Thai für 4 Personen mit Tofu und Erdnüssen\"",
-                "generate": "Erzeugen",
-                "generating": "KI denkt nach …",
-                "cancel": "Abbrechen",
-                "previewTitle": "Vorschau",
-                "previewIntro": "Prüfe und bearbeite die Felder unten, dann speichern."
             }
-        },
-        "refine": {
-            "title": "Mit KI verfeinern",
-            "intro": "Beschreibe eine Änderung, z. B. \"vegetarisch machen\" oder \"Salz halbieren\". Geänderte Felder werden hervorgehoben.",
-            "promptPlaceholder": "z. B. \"vegetarisch machen\"",
-            "refine": "Verfeinern",
-            "refining": "KI denkt nach …",
-            "cancel": "Abbrechen"
         },
         "searchPlaceholder": "Titel durchsuchen …",
         "cuisine": "Küche",

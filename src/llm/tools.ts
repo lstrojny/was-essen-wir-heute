@@ -346,3 +346,112 @@ export function buildChatTools({
 }
 
 export type ChatTools = ReturnType<typeof buildChatTools>
+
+const recipePatchSchema = z
+    .object({
+        titleDe: z
+            .string()
+            .optional()
+            .describe('German title. Omit to keep current.'),
+        titleEn: z
+            .string()
+            .optional()
+            .describe('English title. Omit to keep current.'),
+        notesDe: z
+            .string()
+            .nullable()
+            .optional()
+            .describe('German notes. Null to clear, omit to keep current.'),
+        notesEn: z.string().nullable().optional().describe('English notes.'),
+        cuisineKey: z
+            .string()
+            .optional()
+            .describe(
+                'Cuisine key from controlled vocabulary. Use list_cuisines to discover.',
+            ),
+        activeTimeMinutes: z.number().int().nonnegative().optional(),
+        waitTimeMinutes: z.number().int().nonnegative().optional(),
+        isCompleteMeal: z.boolean().optional(),
+        ingredients: z
+            .array(
+                z.object({
+                    amount: z
+                        .number()
+                        .positive()
+                        .nullable()
+                        .describe(
+                            "Amount sized for the form's current 'amounts for N servings'. Use null for 'to taste'.",
+                        ),
+                    unit: z
+                        .string()
+                        .nullable()
+                        .describe('Canonical unit, or null for unit-less.'),
+                    name: z.string(),
+                }),
+            )
+            .optional()
+            .describe(
+                'Full replacement list of ingredients. Include all rows, even unchanged ones.',
+            ),
+        steps: z
+            .array(
+                z.object({
+                    textDe: z.string().nullable(),
+                    textEn: z.string().nullable(),
+                }),
+            )
+            .optional()
+            .describe(
+                'Full replacement list of steps. Include all steps, even unchanged ones.',
+            ),
+    })
+    .describe(
+        'Sparse patch to the open recipe form. Omit fields you do not change; supply complete arrays for ingredients/steps.',
+    )
+
+const ingredientPatchSchema = z
+    .object({
+        canonicalDe: z.string().optional(),
+        canonicalEn: z.string().optional(),
+        role: z.enum(['starch', 'vegetable', 'protein', 'none']).optional(),
+        density: z
+            .number()
+            .positive()
+            .nullable()
+            .optional()
+            .describe('Grams per millilitre. Null to clear.'),
+        notes: z.string().nullable().optional(),
+        aliases: z
+            .array(z.string())
+            .optional()
+            .describe(
+                'Full replacement list of aliases. Include existing aliases plus new ones.',
+            ),
+        countUnits: z
+            .array(
+                z.object({
+                    unit: z.string(),
+                    gramsPerUnit: z.number().positive(),
+                }),
+            )
+            .optional()
+            .describe('Full replacement list of count units.'),
+    })
+    .describe(
+        'Sparse patch to the open ingredient form. Omit fields you do not change; supply complete arrays for aliases/countUnits.',
+    )
+
+export const CLIENT_TOOL_DEFS = {
+    patch_recipe_form: tool({
+        description:
+            'Apply a sparse patch to the OPEN recipe form on the current page. Only callable when the user is on a recipe detail page. Patches are highlighted in yellow for the user to review; nothing persists until the user clicks Save.',
+        inputSchema: z.object({ patch: recipePatchSchema }),
+    }),
+    patch_ingredient_form: tool({
+        description:
+            'Apply a sparse patch to the OPEN ingredient form on the current page. Only callable when the user is on an ingredient detail page. Patches are highlighted in yellow for the user to review; nothing persists until the user clicks Save.',
+        inputSchema: z.object({ patch: ingredientPatchSchema }),
+    }),
+} as const
+
+export type ClientToolDefs = typeof CLIENT_TOOL_DEFS

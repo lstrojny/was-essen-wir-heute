@@ -14,7 +14,13 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { type KeyboardEvent, useActionState, useState } from 'react'
+import {
+    type KeyboardEvent,
+    useActionState,
+    useCallback,
+    useMemo,
+    useState,
+} from 'react'
 import type { IngredientId } from '@/db/ids'
 import {
     createIngredientAction,
@@ -22,6 +28,11 @@ import {
     type IngredientFormState,
     updateIngredientAction,
 } from '@/ingredients/actions'
+import {
+    type IngredientFormPatch,
+    type IngredientFormSnapshot,
+    useRegisterIngredientBridge,
+} from '../FormBridge'
 
 const initial: IngredientFormState = {}
 
@@ -36,6 +47,28 @@ export type IngredientFormInitial = {
     countUnits: Array<{ unit: string; gramsPerUnit: string }>
 }
 
+type ChangedIngredientFields = {
+    canonicalDe: boolean
+    canonicalEn: boolean
+    role: boolean
+    density: boolean
+    notes: boolean
+    aliases: boolean
+    countUnits: boolean
+}
+
+function emptyChanged(): ChangedIngredientFields {
+    return {
+        canonicalDe: false,
+        canonicalEn: false,
+        role: false,
+        density: false,
+        notes: false,
+        aliases: false,
+        countUnits: false,
+    }
+}
+
 export function IngredientForm({
     initialValues,
 }: {
@@ -48,21 +81,140 @@ export function IngredientForm({
             ? createIngredientAction
             : updateIngredientAction
     const [state, formAction, pending] = useActionState(action, initial)
+    const [canonicalDe, setCanonicalDe] = useState(initialValues.canonicalDe)
+    const [canonicalEn, setCanonicalEn] = useState(initialValues.canonicalEn)
+    const [role, setRole] = useState(initialValues.role)
+    const [density, setDensity] = useState(initialValues.density)
+    const [notes, setNotes] = useState(initialValues.notes)
     const [aliases, setAliases] = useState<string[]>(initialValues.aliases)
     const [aliasDraft, setAliasDraft] = useState('')
     const [countUnits, setCountUnits] = useState(initialValues.countUnits)
+    const [changed, setChanged] = useState<ChangedIngredientFields>(
+        emptyChanged(),
+    )
+
+    function clearChange(field: keyof ChangedIngredientFields) {
+        if (!changed[field]) return
+        setChanged((prev) => ({ ...prev, [field]: false }))
+    }
+
+    const snapshot = useMemo<IngredientFormSnapshot>(
+        () => ({
+            id: initialValues.id,
+            canonicalDe,
+            canonicalEn,
+            role,
+            density,
+            notes,
+            aliases,
+            countUnits,
+        }),
+        [
+            initialValues.id,
+            canonicalDe,
+            canonicalEn,
+            role,
+            density,
+            notes,
+            aliases,
+            countUnits,
+        ],
+    )
+
+    const applyPatch = useCallback(
+        (patch: IngredientFormPatch) => {
+            const next = emptyChanged()
+            if (
+                patch.canonicalDe !== undefined &&
+                patch.canonicalDe !== canonicalDe
+            ) {
+                setCanonicalDe(patch.canonicalDe)
+                next.canonicalDe = true
+            }
+            if (
+                patch.canonicalEn !== undefined &&
+                patch.canonicalEn !== canonicalEn
+            ) {
+                setCanonicalEn(patch.canonicalEn)
+                next.canonicalEn = true
+            }
+            if (patch.role !== undefined && patch.role !== role) {
+                setRole(patch.role)
+                next.role = true
+            }
+            if (patch.density !== undefined) {
+                const asStr =
+                    patch.density === null
+                        ? ''
+                        : String(patch.density).replace('.', ',')
+                if (asStr !== density) {
+                    setDensity(asStr)
+                    next.density = true
+                }
+            }
+            if (patch.notes !== undefined) {
+                const asStr = patch.notes ?? ''
+                if (asStr !== notes) {
+                    setNotes(asStr)
+                    next.notes = true
+                }
+            }
+            if (patch.aliases !== undefined) {
+                const sameLen = patch.aliases.length === aliases.length
+                const sameContent =
+                    sameLen && patch.aliases.every((a, i) => a === aliases[i])
+                if (!sameContent) {
+                    setAliases(patch.aliases)
+                    next.aliases = true
+                }
+            }
+            if (patch.countUnits !== undefined) {
+                const mapped = patch.countUnits.map((cu) => ({
+                    unit: cu.unit,
+                    gramsPerUnit: String(cu.gramsPerUnit).replace('.', ','),
+                }))
+                const sameLen = mapped.length === countUnits.length
+                const sameContent =
+                    sameLen &&
+                    mapped.every(
+                        (cu, i) =>
+                            cu.unit === countUnits[i]?.unit &&
+                            cu.gramsPerUnit === countUnits[i]?.gramsPerUnit,
+                    )
+                if (!sameContent) {
+                    setCountUnits(mapped)
+                    next.countUnits = true
+                }
+            }
+            setChanged((prev) => ({
+                canonicalDe: prev.canonicalDe || next.canonicalDe,
+                canonicalEn: prev.canonicalEn || next.canonicalEn,
+                role: prev.role || next.role,
+                density: prev.density || next.density,
+                notes: prev.notes || next.notes,
+                aliases: prev.aliases || next.aliases,
+                countUnits: prev.countUnits || next.countUnits,
+            }))
+        },
+        [canonicalDe, canonicalEn, role, density, notes, aliases, countUnits],
+    )
+
+    const bridge = useMemo(
+        () => ({ snapshot, applyPatch }),
+        [snapshot, applyPatch],
+    )
+    useRegisterIngredientBridge(bridge)
 
     function addAlias() {
         const v = aliasDraft.trim()
-        if (!v) {
-            return
-        }
+        if (!v) return
         if (aliases.some((a) => a.toLowerCase() === v.toLowerCase())) {
             setAliasDraft('')
             return
         }
         setAliases([...aliases, v])
         setAliasDraft('')
+        clearChange('aliases')
     }
 
     function handleAliasKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -74,10 +226,12 @@ export function IngredientForm({
 
     function removeAlias(target: string) {
         setAliases(aliases.filter((a) => a !== target))
+        clearChange('aliases')
     }
 
     function addCountUnit() {
         setCountUnits([...countUnits, { unit: '', gramsPerUnit: '' }])
+        clearChange('countUnits')
     }
 
     function updateCountUnit(
@@ -90,10 +244,12 @@ export function IngredientForm({
                 i === index ? { ...cu, [field]: value } : cu,
             ),
         )
+        clearChange('countUnits')
     }
 
     function removeCountUnit(index: number) {
         setCountUnits(countUnits.filter((_, i) => i !== index))
+        clearChange('countUnits')
     }
 
     return (
@@ -123,12 +279,24 @@ export function IngredientForm({
                         <TextField
                             name="canonicalDe"
                             label={t('ingredients.form.canonical.de')}
-                            defaultValue={initialValues.canonicalDe}
+                            value={canonicalDe}
+                            onChange={(e) => {
+                                setCanonicalDe(e.target.value)
+                                clearChange('canonicalDe')
+                            }}
+                            color={changed.canonicalDe ? 'warning' : undefined}
+                            focused={changed.canonicalDe || undefined}
                         />
                         <TextField
                             name="canonicalEn"
                             label={t('ingredients.form.canonical.en')}
-                            defaultValue={initialValues.canonicalEn}
+                            value={canonicalEn}
+                            onChange={(e) => {
+                                setCanonicalEn(e.target.value)
+                                clearChange('canonicalEn')
+                            }}
+                            color={changed.canonicalEn ? 'warning' : undefined}
+                            focused={changed.canonicalEn || undefined}
                         />
                     </Stack>
                 </Paper>
@@ -142,7 +310,16 @@ export function IngredientForm({
                             name="role"
                             label={t('ingredients.form.classification.role')}
                             select
-                            defaultValue={initialValues.role}
+                            value={role}
+                            onChange={(e) => {
+                                setRole(
+                                    e.target
+                                        .value as IngredientFormInitial['role'],
+                                )
+                                clearChange('role')
+                            }}
+                            color={changed.role ? 'warning' : undefined}
+                            focused={changed.role || undefined}
                             required
                         >
                             <MenuItem value="starch">
@@ -161,7 +338,13 @@ export function IngredientForm({
                         <TextField
                             name="density"
                             label={t('ingredients.form.classification.density')}
-                            defaultValue={initialValues.density}
+                            value={density}
+                            onChange={(e) => {
+                                setDensity(e.target.value)
+                                clearChange('density')
+                            }}
+                            color={changed.density ? 'warning' : undefined}
+                            focused={changed.density || undefined}
                             helperText={t(
                                 'ingredients.form.classification.densityHint',
                             )}
@@ -170,14 +353,28 @@ export function IngredientForm({
                         <TextField
                             name="notes"
                             label={t('ingredients.form.classification.notes')}
-                            defaultValue={initialValues.notes}
+                            value={notes}
+                            onChange={(e) => {
+                                setNotes(e.target.value)
+                                clearChange('notes')
+                            }}
+                            color={changed.notes ? 'warning' : undefined}
+                            focused={changed.notes || undefined}
                             multiline
                             minRows={2}
                         />
                     </Stack>
                 </Paper>
 
-                <Paper sx={{ p: 3 }} variant="outlined">
+                <Paper
+                    sx={{
+                        p: 3,
+                        borderColor: changed.aliases
+                            ? 'warning.main'
+                            : undefined,
+                    }}
+                    variant="outlined"
+                >
                     <Stack spacing={2}>
                         <Typography variant="h6">
                             {t('ingredients.form.aliases.title')}
@@ -225,7 +422,15 @@ export function IngredientForm({
                     </Stack>
                 </Paper>
 
-                <Paper sx={{ p: 3 }} variant="outlined">
+                <Paper
+                    sx={{
+                        p: 3,
+                        borderColor: changed.countUnits
+                            ? 'warning.main'
+                            : undefined,
+                    }}
+                    variant="outlined"
+                >
                     <Stack spacing={2}>
                         <Typography variant="h6">
                             {t('ingredients.form.countUnits.title')}
@@ -329,19 +534,22 @@ export function IngredientForm({
 function DeleteButton({ id }: { id: IngredientId }) {
     const t = useTranslations()
     return (
-        <form
+        <Stack
+            component="form"
             action={deleteIngredientAction}
             onSubmit={(e) => {
                 if (!confirm(t('ingredients.form.confirmDelete'))) {
                     e.preventDefault()
                 }
             }}
-            style={{ marginLeft: 'auto' }}
+            direction="row"
+            spacing={2}
+            sx={{ alignItems: 'center' }}
         >
             <input type="hidden" name="id" value={id} />
-            <Button type="submit" color="error" startIcon={<DeleteIcon />}>
+            <Button type="submit" color="error" variant="outlined">
                 {t('ingredients.form.delete')}
             </Button>
-        </form>
+        </Stack>
     )
 }

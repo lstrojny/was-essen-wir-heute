@@ -2,11 +2,24 @@ import { convertToModelMessages, type UIMessage } from 'ai'
 import { NextResponse } from 'next/server'
 import { getAuthenticatedSession } from '@/auth/session'
 import { resolveLocale } from '@/i18n/locale'
-import { chatAboutRecipe } from '@/llm/recipe-synthesis'
+import { chatAboutRecipe, type PageContext } from '@/llm/recipe-synthesis'
 import { buildChatTools } from '@/llm/tools'
 
 type RequestBody = {
     messages?: UIMessage[]
+    pageContext?: PageContext
+}
+
+function isPageContext(value: unknown): value is PageContext {
+    if (typeof value !== 'object' || value === null) return false
+    const kind = (value as { pageKind?: unknown }).pageKind
+    return (
+        kind === 'recipes-list' ||
+        kind === 'ingredients-list' ||
+        kind === 'recipe-detail' ||
+        kind === 'ingredient-detail' ||
+        kind === 'other'
+    )
 }
 
 export async function POST(request: Request) {
@@ -25,11 +38,15 @@ export async function POST(request: Request) {
     }
     const activeLanguage = await resolveLocale()
     const tools = buildChatTools({ user: session.user, activeLanguage })
+    const pageContext: PageContext = isPageContext(body.pageContext)
+        ? body.pageContext
+        : { pageKind: 'other' }
     const result = chatAboutRecipe({
         messages: await convertToModelMessages(body.messages),
         activeLanguage,
         abortSignal: request.signal,
         tools,
+        pageContext,
     })
     return result.toUIMessageStreamResponse()
 }

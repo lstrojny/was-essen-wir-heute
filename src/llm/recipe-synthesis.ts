@@ -1,7 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic'
 import { generateObject, type ModelMessage, stepCountIs, streamText } from 'ai'
 import { z } from 'zod'
-import type { ChatTools } from '@/llm/tools'
+import { type ChatTools, CLIENT_TOOL_DEFS } from '@/llm/tools'
 import type { RecipeDetail as SpoonacularRecipe } from '@/spoonacular/types'
 
 const DEFAULT_MODEL =
@@ -249,32 +249,88 @@ export async function enrichSpoonacularImport(input: {
     return object
 }
 
-function buildChatSystemPrompt(activeLanguage: 'de' | 'en'): string {
+export type PageContext =
+    | { pageKind: 'recipes-list' }
+    | { pageKind: 'ingredients-list' }
+    | {
+          pageKind: 'recipe-detail'
+          recipe: unknown
+      }
+    | {
+          pageKind: 'ingredient-detail'
+          ingredient: unknown
+      }
+    | { pageKind: 'other'; path?: string }
+
+function describePageContext(ctx: PageContext): string {
+    switch (ctx.pageKind) {
+        case 'recipes-list':
+            return 'The user is on the recipes list page. Help them search, filter, or design a new recipe. Form-patch tools are NOT available on this page.'
+        case 'ingredients-list':
+            return 'The user is on the ingredients list page. Help them search the central ingredient catalog. Form-patch tools are NOT available on this page.'
+        case 'recipe-detail':
+            return [
+                'The user is on a recipe detail page editing an existing recipe.',
+                'The current OPEN form state (live, may include unsaved edits) is:',
+                '```json',
+                JSON.stringify(ctx.recipe, null, 2),
+                '```',
+                'You can call `patch_recipe_form` with a sparse patch to update the form. The user reviews highlighted changes and clicks Save to persist. Do NOT call `patch_recipe_form` unless the user clearly asked for a change. Confirm what you will change in your reply, then call the tool in the same turn.',
+                'For ingredient `amount` in the patch: pass the per-1-serving normalised amount; the form scales for display.',
+            ].join('\n')
+        case 'ingredient-detail':
+            return [
+                'The user is on an ingredient detail page editing a central catalog entry.',
+                'The current OPEN form state is:',
+                '```json',
+                JSON.stringify(ctx.ingredient, null, 2),
+                '```',
+                'You can call `patch_ingredient_form` with a sparse patch (e.g. add an alias). Always include the FULL replacement list when supplying `aliases` or `countUnits` — existing entries the user wants to keep must be re-included. Do NOT call the tool unless the user clearly asked for a change.',
+            ].join('\n')
+        case 'other':
+            return ctx.path
+                ? `The user is on page ${ctx.path}. Form-patch tools are NOT available.`
+                : 'The user is not on a list or detail page. Form-patch tools are NOT available.'
+    }
+}
+
+function buildChatSystemPrompt(
+    activeLanguage: 'de' | 'en',
+    pageContext: PageContext,
+): string {
     const languageName =
         activeLanguage === 'de' ? 'German (de)' : 'English (en)'
     return [
-        'You help a home cook design a recipe to save to their family recipe catalog. The user will chat with you in natural language; you ask clarifying questions (cuisine, dietary constraints, what is on hand) and propose ideas.',
+        "You are the persistent AI assistant in a family-recipe app. You answer questions about the user's recipes and ingredients, suggest dishes, and on detail pages you can apply structured changes to the open form.",
         '',
         `Reply in ${languageName} unless the user clearly writes in the other supported language.`,
+        '',
+        'Current page context:',
+        describePageContext(pageContext),
         '',
         'Conversational rules:',
         '- Keep responses short and concrete; one or two short paragraphs at most.',
         '- Ask one or two clarifying questions per turn when the brief is vague; never bury the cook in a wall of questions.',
         '- Do NOT ask about serving count. The app stores per-serving amounts and lets the cook scale on the recipe page, so the question is never useful. Assume 4 servings unless the user volunteers a different number.',
-        '- Propose actual dishes by name when the user has given enough signal. Describe them briefly so the cook can pick or adjust.',
-        '- When the user has converged on a recipe and indicates they want to save it, confirm what you understood in one or two sentences and remind them to click the "Save this recipe" button — DO NOT emit a structured recipe yourself. The app handles the structured emit on the save click.',
-        "- Stay focused on recipe design and the user's catalog. Avoid unrelated tangents.",
+        '- Propose actual dishes by name when the user has given enough signal.',
+        "- Stay focused on recipes, ingredients, and the user's catalog. Avoid unrelated tangents.",
         '',
-        "You have access to the user's recipe and ingredient catalogs through tools. Use them whenever the user asks questions about what they already have, or when consulting the catalog would let you make a better suggestion:",
+        'Read tools for consulting the catalog (always available):',
         "- 'do I have X?', 'what Italian recipes do I have?', 'which complete meals can I cook?' → call search_recipes",
         "- 'tell me about this recipe' → call get_recipe with the id",
         "- 'what ingredients do I have?', 'show me my proteins', 'do I have ginger?' → call list_ingredients (omit query for a full list, or pass a substring to filter)",
         "- 'what can I make with chicken?' → call list_ingredients with query 'chicken' to resolve the ingredient id, then call get_recipes_using_ingredient",
         "- 'how is this rated?' → call get_recipe_ratings",
+        '',
+        'Rating-write tools (always available):',
         "- 'rate this 4 stars' / 'forget my rating' → confirm intent, then call set_my_rating or clear_my_rating",
         '',
-        "Before calling a write tool (set_my_rating, clear_my_rating), confirm the user's intent in your message and only call the tool after they have asked for the action.",
-        'When a tool returns, summarise what you found in plain language. Never paste raw JSON into your reply. If a tool fails (returns an `error` field), tell the user briefly and suggest a next step.',
+        'Form-patch tools (only on the matching detail page — see page context):',
+        "- 'add spring onion as alias', 'change the role to vegetable' (on ingredient detail) → call patch_ingredient_form",
+        "- 'make this vegetarian', 'halve the salt', 'use chicken thighs' (on recipe detail) → call patch_recipe_form",
+        '',
+        "Before calling any write tool (set_my_rating, clear_my_rating, patch_recipe_form, patch_ingredient_form), confirm the user's intent in your message and only call the tool after they have explicitly asked for the action.",
+        'When a tool returns, summarise what you found or changed in plain language. Never paste raw JSON into your reply. If a tool fails (returns an `error` field), tell the user briefly and suggest a next step.',
     ].join('\n')
 }
 
@@ -283,15 +339,23 @@ export type ChatTextInput = {
     activeLanguage: 'de' | 'en'
     abortSignal?: AbortSignal
     tools?: ChatTools
+    pageContext: PageContext
 }
 
 export function chatAboutRecipe(input: ChatTextInput) {
+    const showFormPatchTools =
+        input.pageContext.pageKind === 'recipe-detail' ||
+        input.pageContext.pageKind === 'ingredient-detail'
+    const tools = {
+        ...input.tools,
+        ...(showFormPatchTools ? CLIENT_TOOL_DEFS : {}),
+    }
     return streamText({
         model: anthropic(DEFAULT_MODEL),
-        system: buildChatSystemPrompt(input.activeLanguage),
+        system: buildChatSystemPrompt(input.activeLanguage, input.pageContext),
         messages: input.messages,
         abortSignal: input.abortSignal,
-        tools: input.tools,
+        tools,
         stopWhen: stepCountIs(8),
     })
 }

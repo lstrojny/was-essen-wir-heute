@@ -31,46 +31,6 @@ export function synthesizedToFormInitial(
     }
 }
 
-export type FormFieldsSnapshot = {
-    titleDe: string
-    titleEn: string
-    notesDe: string
-    notesEn: string
-    cuisineKey: string
-    activeTimeMinutes: string
-    waitTimeMinutes: string
-    isCompleteMeal: boolean
-    formServings: number
-    ingredients: Array<{ amount: string; unit: string; name: string }>
-    steps: Array<{ textDe: string; textEn: string }>
-}
-
-export function formSnapshotToSynthesized(
-    snapshot: FormFieldsSnapshot,
-): SynthesizedRecipe {
-    return {
-        titleDe: snapshot.titleDe,
-        titleEn: snapshot.titleEn,
-        notesDe: snapshot.notesDe || null,
-        notesEn: snapshot.notesEn || null,
-        cuisineKey: snapshot.cuisineKey || 'other',
-        activeTimeMinutes: Number(snapshot.activeTimeMinutes) || 0,
-        waitTimeMinutes: Number(snapshot.waitTimeMinutes) || 0,
-        isCompleteMeal: snapshot.isCompleteMeal,
-        intendedServings: snapshot.formServings,
-        ingredients: snapshot.ingredients.map((ing) => ({
-            name: ing.name,
-            amount:
-                ing.amount === '' ? null : Number(ing.amount.replace(',', '.')),
-            unit: ing.unit || null,
-        })),
-        steps: snapshot.steps.map((step) => ({
-            textDe: step.textDe || null,
-            textEn: step.textEn || null,
-        })),
-    }
-}
-
 export type ChangedFields = {
     titleDe: boolean
     titleEn: boolean

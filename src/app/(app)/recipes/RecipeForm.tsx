@@ -16,9 +16,8 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useCallback, useMemo, useState } from 'react'
 import type { CuisineKey, IngredientId, RecipeId } from '@/db/ids'
-import type { SynthesizedRecipe } from '@/llm/recipe-synthesis'
 import {
     copyRecipeAction,
     createRecipeAction,
@@ -38,15 +37,16 @@ import {
     type UnitCategory,
     type UnitOption,
 } from '@/recipes/units'
+import {
+    type RecipeFormPatch,
+    type RecipeFormSnapshot,
+    useRegisterRecipeBridge,
+} from '../FormBridge'
 import { ComposedView } from './ComposedView'
 import {
     type ChangedFields,
-    diffFormInitial,
     emptyChangedFields,
-    formSnapshotToSynthesized,
-    synthesizedToFormInitial,
 } from './recipe-form-conversion'
-import { useLlmCall } from './use-llm-call'
 
 const initial: RecipeFormState = {}
 
@@ -151,8 +151,6 @@ export function RecipeForm({
     const [changedFields, setChangedFields] = useState<ChangedFields>(
         emptyChangedFields(),
     )
-    const llm = useLlmCall()
-    const [refinePrompt, setRefinePrompt] = useState('')
 
     function clearChanged(
         field: keyof Omit<ChangedFields, 'ingredients' | 'steps'>,
@@ -179,39 +177,181 @@ export function RecipeForm({
         })
     }
 
-    function applySynthesizedRecipe(synth: SynthesizedRecipe) {
-        const previous: RecipeFormInitial = {
+    const snapshot = useMemo<RecipeFormSnapshot>(
+        () => ({
             id: initialValues.id,
             titleDe,
             titleEn,
             notesDe,
             notesEn,
-            cuisineKey: (cuisineKey || initialValues.cuisineKey) as
-                | CuisineKey
-                | '',
+            cuisineKey,
             activeTimeMinutes,
             waitTimeMinutes,
             isCompleteMeal,
-            formServings,
+            ingredients: ingredients.map((ing) => ({
+                amount: ing.amount,
+                unit: ing.unit,
+                name: ing.name,
+            })),
+            steps: steps.map((s) => ({ textDe: s.textDe, textEn: s.textEn })),
+        }),
+        [
+            initialValues.id,
+            titleDe,
+            titleEn,
+            notesDe,
+            notesEn,
+            cuisineKey,
+            activeTimeMinutes,
+            waitTimeMinutes,
+            isCompleteMeal,
             ingredients,
             steps,
-            components,
-        }
-        const next = synthesizedToFormInitial(synth)
-        setTitleDe(next.titleDe)
-        setTitleEn(next.titleEn)
-        setNotesDe(next.notesDe)
-        setNotesEn(next.notesEn)
-        setCuisineKey(next.cuisineKey)
-        setActiveTimeMinutes(next.activeTimeMinutes)
-        setWaitTimeMinutes(next.waitTimeMinutes)
-        setIsCompleteMeal(next.isCompleteMeal)
-        setFormServingsState(next.formServings)
-        setAppliedFormServings(next.formServings)
-        setIngredients(next.ingredients)
-        setSteps(next.steps)
-        setChangedFields(diffFormInitial(previous, next))
-    }
+        ],
+    )
+
+    const applyPatch = useCallback(
+        (patch: RecipeFormPatch) => {
+            const flags: Partial<ChangedFields> = {}
+            if (patch.titleDe !== undefined && patch.titleDe !== titleDe) {
+                setTitleDe(patch.titleDe)
+                flags.titleDe = true
+            }
+            if (patch.titleEn !== undefined && patch.titleEn !== titleEn) {
+                setTitleEn(patch.titleEn)
+                flags.titleEn = true
+            }
+            if (patch.notesDe !== undefined) {
+                const s = patch.notesDe ?? ''
+                if (s !== notesDe) {
+                    setNotesDe(s)
+                    flags.notesDe = true
+                }
+            }
+            if (patch.notesEn !== undefined) {
+                const s = patch.notesEn ?? ''
+                if (s !== notesEn) {
+                    setNotesEn(s)
+                    flags.notesEn = true
+                }
+            }
+            if (
+                patch.cuisineKey !== undefined &&
+                patch.cuisineKey !== cuisineKey
+            ) {
+                setCuisineKey(patch.cuisineKey)
+                flags.cuisineKey = true
+            }
+            if (patch.activeTimeMinutes !== undefined) {
+                const s = String(patch.activeTimeMinutes)
+                if (s !== activeTimeMinutes) {
+                    setActiveTimeMinutes(s)
+                    flags.activeTimeMinutes = true
+                }
+            }
+            if (patch.waitTimeMinutes !== undefined) {
+                const s =
+                    patch.waitTimeMinutes === 0
+                        ? ''
+                        : String(patch.waitTimeMinutes)
+                if (s !== waitTimeMinutes) {
+                    setWaitTimeMinutes(s)
+                    flags.waitTimeMinutes = true
+                }
+            }
+            if (
+                patch.isCompleteMeal !== undefined &&
+                patch.isCompleteMeal !== isCompleteMeal
+            ) {
+                setIsCompleteMeal(patch.isCompleteMeal)
+            }
+            let nextIngredients: typeof ingredients | null = null
+            if (patch.ingredients !== undefined) {
+                nextIngredients = patch.ingredients.map((ing) => ({
+                    amount:
+                        ing.amount === null
+                            ? ''
+                            : formatAmountForInput(
+                                  ing.amount * appliedFormServings,
+                              ),
+                    unit: ing.unit ?? '',
+                    name: ing.name,
+                    centralIngredientId: null,
+                }))
+                setIngredients(nextIngredients)
+            }
+            let nextSteps: typeof steps | null = null
+            if (patch.steps !== undefined) {
+                nextSteps = patch.steps.map((s) => ({
+                    textDe: s.textDe ?? '',
+                    textEn: s.textEn ?? '',
+                }))
+                setSteps(nextSteps)
+            }
+            setChangedFields((prev) => {
+                const out: ChangedFields = {
+                    ...prev,
+                    ...flags,
+                    ingredients: new Set(prev.ingredients),
+                    steps: new Set(prev.steps),
+                }
+                if (nextIngredients) {
+                    const len = Math.max(
+                        nextIngredients.length,
+                        ingredients.length,
+                    )
+                    for (let i = 0; i < len; i++) {
+                        const a = ingredients[i]
+                        const b = nextIngredients[i]
+                        if (
+                            !a ||
+                            !b ||
+                            a.amount !== b.amount ||
+                            a.unit !== b.unit ||
+                            a.name !== b.name
+                        ) {
+                            out.ingredients.add(i)
+                        }
+                    }
+                }
+                if (nextSteps) {
+                    const len = Math.max(nextSteps.length, steps.length)
+                    for (let i = 0; i < len; i++) {
+                        const a = steps[i]
+                        const b = nextSteps[i]
+                        if (
+                            !a ||
+                            !b ||
+                            a.textDe !== b.textDe ||
+                            a.textEn !== b.textEn
+                        ) {
+                            out.steps.add(i)
+                        }
+                    }
+                }
+                return out
+            })
+        },
+        [
+            titleDe,
+            titleEn,
+            notesDe,
+            notesEn,
+            cuisineKey,
+            activeTimeMinutes,
+            waitTimeMinutes,
+            isCompleteMeal,
+            ingredients,
+            steps,
+            appliedFormServings,
+        ],
+    )
+
+    const bridge = useMemo(
+        () => ({ snapshot, applyPatch }),
+        [snapshot, applyPatch],
+    )
+    useRegisterRecipeBridge(bridge)
 
     function applyFormServings() {
         if (formServings <= 0 || formServings === appliedFormServings) return
@@ -335,82 +475,12 @@ export function RecipeForm({
         setSteps(steps.filter((_, i) => i !== index))
     }
 
-    async function runRefine() {
-        const value = refinePrompt.trim()
-        if (!value) return
-        const snapshot = formSnapshotToSynthesized({
-            titleDe,
-            titleEn,
-            notesDe,
-            notesEn,
-            cuisineKey,
-            activeTimeMinutes,
-            waitTimeMinutes,
-            isCompleteMeal,
-            formServings,
-            ingredients,
-            steps,
-        })
-        const result = await llm.start(value, snapshot)
-        if (result) {
-            applySynthesizedRecipe(result)
-            setRefinePrompt('')
-        }
-    }
-
     return (
         <Stack spacing={3}>
             {state.error ? <Alert severity="error">{state.error}</Alert> : null}
             {state.success ? (
                 <Alert severity="success">{state.success}</Alert>
             ) : null}
-
-            <Paper sx={{ p: 3 }} variant="outlined">
-                <Stack spacing={2}>
-                    <Typography variant="h6">
-                        {t('recipes.refine.title')}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {t('recipes.refine.intro')}
-                    </Typography>
-                    {llm.state.error ? (
-                        <Alert severity="error">
-                            {t('errors.llmSynthesisFailed', {
-                                detail: llm.state.error,
-                            })}
-                        </Alert>
-                    ) : null}
-                    <TextField
-                        placeholder={t('recipes.refine.promptPlaceholder')}
-                        multiline
-                        minRows={2}
-                        value={refinePrompt}
-                        onChange={(e) => setRefinePrompt(e.target.value)}
-                    />
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                            onClick={runRefine}
-                            variant="outlined"
-                            disabled={
-                                llm.state.pending || refinePrompt.trim() === ''
-                            }
-                        >
-                            {llm.state.pending
-                                ? t('recipes.refine.refining')
-                                : t('recipes.refine.refine')}
-                        </Button>
-                        {llm.state.pending ? (
-                            <Button
-                                onClick={llm.cancel}
-                                variant="outlined"
-                                color="warning"
-                            >
-                                {t('recipes.refine.cancel')}
-                            </Button>
-                        ) : null}
-                    </Box>
-                </Stack>
-            </Paper>
 
             <Stack
                 spacing={3}

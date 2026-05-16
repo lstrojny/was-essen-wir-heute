@@ -23,28 +23,19 @@ operations, one per call-site:
 - `enrichSpoonacularImport(payload)` — extract wait time, pick cuisine
   key, suggest central-list matches, translate to the other language.
   Used by `04_imports.md`.
-- `synthesizeRecipe(prompt, currentRecipe?)` — turn a free-text prompt
-  (and optionally an existing structured recipe) into a structured
-  recipe in both supported languages.
-  - **Fresh mode** (`currentRecipe` omitted): used by the LLM
-    single-shot import Phase A (see `04_imports.md`).
-  - **Refine mode** (`currentRecipe` supplied): used by the
-    "Refine with AI" action on any recipe (see `01_recipes.md`). The
-    prompt describes a change ("make this vegetarian"); the LLM
-    returns the full modified recipe.
-- `synthesizeRecipeFromMessages(messages)` — same structured output as
-  `synthesizeRecipe`, but takes a multi-turn chat history instead of a
-  single prompt. Used by the LLM chat import Phase B
-  (see `04_imports.md`) when the user clicks "Save this recipe" at the
-  end of a conversation.
-- `chatAboutRecipe(messages, tools)` — free-form streaming text response.
-  Implements the conversation turns of the chat import: clarifying
-  questions, proposed ideas, "make it lighter". Uses the AI SDK's
-  `streamText` so the UI can render tokens as they arrive. The
-  structured emit happens separately via `synthesizeRecipeFromMessages`.
-  The operation also accepts a **tool catalog** (see *Chat tools*
-  below) so the model can consult and mutate the user's data while
-  conversing.
+- `synthesizeRecipeFromMessages(messages)` — turn a multi-turn chat
+  history into a structured recipe in both supported languages. Used
+  when the user clicks "Save as new recipe" at the end of a chat
+  conversation on the recipes list (see `07_ai_chat.md`,
+  `04_imports.md`).
+- `chatAboutRecipe(messages, tools, pageContext)` — free-form streaming
+  text response that powers the persistent AI chat (see
+  `07_ai_chat.md`). Uses the AI SDK's `streamText` so the UI can render
+  tokens as they arrive. Accepts a **tool catalog** so the model can
+  consult and mutate the user's data, and a **page context** describing
+  what the user is currently looking at (page kind, entity id, current
+  form state). The structured emit happens separately via
+  `synthesizeRecipeFromMessages`.
 - `enrichSpoonacularImport(detail)` — see `04_imports.md`.
 - `translateText(text, from, to)` — used by the on-demand translate
   action in `06_i18n.md`.
@@ -96,13 +87,30 @@ Write tools (scoped to the session user):
   rating for a recipe.
 - `clear_my_rating(recipe_id)` — removes the current user's rating.
 
-### Phase 2 — recipe + ingredient CRUD (deferred)
+### Phase 2 — client-side form-patch tools (planned)
 
-`create_recipe`, `update_recipe`, `delete_recipe`, plus the analogous
-ingredient tools, are deferred until the chat surfaces a clear need.
-They require mirroring the form-action input shape (per-serving
-normalization, central-ingredient resolution, cycle detection) and
-warrant a separate slice.
+When the user is on a recipe or ingredient detail page, the chat
+exposes tools that the model executes **client-side** against the
+open React form state (not the database):
+
+- `patch_recipe_form(patch)` — apply a sparse patch to the open recipe
+  form (any subset of title, notes, cuisine, times, ingredients,
+  steps, components, complete-meal flag). Triggers the same change-
+  tracking highlights the old refine-with-AI panel used.
+- `patch_ingredient_form(patch)` — same shape for the ingredient form
+  (canonical names, role, density, notes, aliases, count units).
+
+These are defined with the AI SDK's tool API but without an
+`execute` handler on the server; the client supplies the handler via
+`useChat`'s `onToolCall` (or equivalent) and applies the patch to the
+form state. Patches never persist on their own — the user must click
+Save.
+
+### Phase 3 — recipe + ingredient CRUD via tools (deferred)
+
+Direct database creates / updates / deletes from chat (without going
+through the open form) are deferred. The form-patch flow covers the
+detail-page editing case; explicit Save buttons cover persistence.
 
 ### Tool-result rendering
 
@@ -162,10 +170,12 @@ functional specs:
 
 - `enrichSpoonacularImport` failing: the preview is shown with un-enriched
   data (see `04_imports.md`). Import does not fail because of enrichment.
-- `synthesizeRecipe` failing: the error is surfaced inline on the
-  triggering surface (LLM import page or refine panel) with a retry
-  affordance (re-submit the prompt). User-initiated abort is not
-  reported as a failure (see *Cancellation*).
+- `synthesizeRecipeFromMessages` failing: the error is surfaced inline
+  in the chat sidebar with a retry affordance (re-click "Save as new
+  recipe"). User-initiated abort is not reported as a failure (see
+  *Cancellation*).
+- `chatAboutRecipe` failing mid-stream: the partial text stays in the
+  transcript; an error chip is shown and the user can retry.
 - `translateText` failing: the source-language text continues to display
   with the "untranslated" marker (see `06_i18n.md`).
 - `proposeIngredientMatches` failing: the preview shows the row as
@@ -185,10 +195,11 @@ a v2 concern and is flagged in `00_stack.md`.
 
 ## Cancellation
 
-Interactive LLM operations (`synthesizeRecipe` in both fresh and refine
-mode) must be cancellable from the UI: the user can click an "Abort"
-button while the call is in flight and have the underlying request
-torn down server-side so tokens stop being billed.
+Interactive LLM operations (`chatAboutRecipe` streaming,
+`synthesizeRecipeFromMessages`) must be cancellable from the UI: the
+user can click an "Abort"/"Stop" button while the call is in flight
+and have the underlying request torn down server-side so tokens stop
+being billed.
 
 This requires that the operation runs behind a **Route Handler**
 (`/api/...`), not a Next.js Server Action. Server Actions cannot

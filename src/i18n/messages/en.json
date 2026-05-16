@@ -80,6 +80,14 @@
         "de": "Deutsch",
         "en": "English"
     },
+    "chat": {
+        "title": "AI assistant",
+        "subtitle": "Ask about your recipes and ingredients.",
+        "placeholder": "Ask about your recipes, ingredients, or ratings.",
+        "inputPlaceholder": "Message…",
+        "send": "Send",
+        "stop": "Stop"
+    },
     "roles": {
         "admin": "Admin",
         "user": "User"
@@ -194,23 +202,8 @@
     "recipes": {
         "title": "Recipes",
         "new": "New",
-        "importLlm": "Import with AI",
-        "importChat": "Chat with AI",
         "importSpoonacular": "Import from Spoonacular",
         "import": {
-            "chat": {
-                "title": "Design a recipe in chat",
-                "intro": "Tell the AI what you want to cook. It will ask follow-up questions and propose ideas. When you're satisfied, click \"Save this recipe\".",
-                "placeholder": "Send a message to begin — e.g. \"Something quick with lentils for 4\".",
-                "inputPlaceholder": "Your message…",
-                "send": "Send",
-                "stop": "Stop",
-                "saveRecipe": "Save this recipe",
-                "saving": "Structuring…",
-                "cancelSave": "Cancel",
-                "previewTitle": "Preview",
-                "previewIntro": "Review and edit the fields below, then save."
-            },
             "spoonacular": {
                 "title": "Import from Spoonacular",
                 "intro": "Search Spoonacular for a recipe or paste a URL/ID. After import, every field is editable.",
@@ -229,26 +222,7 @@
                 "previewIntroEnriched": "The English Spoonacular recipe was auto-translated to German, cuisine mapped, and wait time extracted from the instructions. Every field is editable.",
                 "loadingTitle": "Enriching…",
                 "loadingIntro": "Translating the Spoonacular recipe to German and structuring it."
-            },
-            "llm": {
-                "title": "Import a recipe with AI",
-                "intro": "Describe the recipe you want to save. The AI will structure it; you can edit every field afterwards.",
-                "promptTitle": "Description",
-                "promptPlaceholder": "e.g. \"Quick pad thai for 4 with tofu and peanuts\"",
-                "generate": "Generate",
-                "generating": "AI thinking…",
-                "cancel": "Cancel",
-                "previewTitle": "Preview",
-                "previewIntro": "Review and edit the fields below, then save."
             }
-        },
-        "refine": {
-            "title": "Refine with AI",
-            "intro": "Describe a change, e.g. \"make this vegetarian\" or \"halve the salt\". Changed fields will be highlighted.",
-            "promptPlaceholder": "e.g. \"make this vegetarian\"",
-            "refine": "Refine",
-            "refining": "AI thinking…",
-            "cancel": "Cancel"
         },
         "searchPlaceholder": "Search titles…",
         "cuisine": "Cuisine",
