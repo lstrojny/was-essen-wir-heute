@@ -2,6 +2,7 @@
 
 import { eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { db } from '@/db'
 import { type IngredientId, parseIngredientId } from '@/db/ids'
@@ -10,6 +11,12 @@ import {
     centralIngredientCountUnits,
     centralIngredients,
 } from '@/db/schema'
+
+type FieldsErrorKey =
+    | 'canonicalRequired'
+    | 'pickRole'
+    | 'densityInvalid'
+    | 'countUnitsInvalid'
 
 const ROLES = ['starch', 'vegetable', 'protein', 'none'] as const
 type Role = (typeof ROLES)[number]
@@ -112,25 +119,25 @@ type WriteFields = {
     countUnits: ParsedCountUnit[]
 }
 
-function readFormFields(data: FormData): WriteFields | string {
+function readFormFields(data: FormData): WriteFields | FieldsErrorKey {
     const canonicalDe = readOptionalString(data, 'canonicalDe')
     const canonicalEn = readOptionalString(data, 'canonicalEn')
     if (!canonicalDe && !canonicalEn) {
-        return 'Provide a canonical name in at least one language.'
+        return 'canonicalRequired'
     }
     const role = readRole(data)
     if (!role) {
-        return 'Pick a role.'
+        return 'pickRole'
     }
     const density = readOptionalNumber(data, 'density')
     if (density === 'invalid') {
-        return 'Density must be a positive number (g/ml).'
+        return 'densityInvalid'
     }
     const notes = readOptionalString(data, 'notes')
     const aliases = dedupCaseInsensitive(readStringList(data, 'alias'))
     const countUnits = parseCountUnits(data)
     if (countUnits === 'invalid') {
-        return 'Count units must have a name and a positive grams-per-unit, and must not repeat within an entry.'
+        return 'countUnitsInvalid'
     }
     return {
         canonicalDe,
@@ -148,9 +155,10 @@ export async function createIngredientAction(
     data: FormData,
 ): Promise<IngredientFormState> {
     await requireSetupOrSession()
+    const tErr = await getTranslations('errors')
     const fields = readFormFields(data)
     if (typeof fields === 'string') {
-        return { error: fields }
+        return { error: tErr(fields) }
     }
     let newId: IngredientId | undefined
     db.transaction(() => {
@@ -190,7 +198,7 @@ export async function createIngredientAction(
         }
     })
     if (!newId) {
-        return { error: 'Insert failed.' }
+        return { error: tErr('insertFailed') }
     }
     redirect(`/ingredients/${newId}`)
 }
@@ -200,13 +208,15 @@ export async function updateIngredientAction(
     data: FormData,
 ): Promise<IngredientFormState> {
     await requireSetupOrSession()
+    const tErr = await getTranslations('errors')
+    const tForm = await getTranslations('ingredients.form')
     const id = parseIngredientId(readString(data, 'id'))
     if (!id) {
-        return { error: 'Invalid ingredient id.' }
+        return { error: tErr('invalidIngredient') }
     }
     const fields = readFormFields(data)
     if (typeof fields === 'string') {
-        return { error: fields }
+        return { error: tErr(fields) }
     }
     const existing = db
         .select({ id: centralIngredients.id })
@@ -214,7 +224,7 @@ export async function updateIngredientAction(
         .where(eq(centralIngredients.id, id))
         .get()
     if (!existing) {
-        return { error: 'Ingredient not found.' }
+        return { error: tErr('ingredientNotFound') }
     }
     db.transaction(() => {
         db.update(centralIngredients)
@@ -256,7 +266,7 @@ export async function updateIngredientAction(
                 .run()
         }
     })
-    return { success: 'Ingredient saved.' }
+    return { success: tForm('saved') }
 }
 
 export async function deleteIngredientAction(data: FormData): Promise<void> {

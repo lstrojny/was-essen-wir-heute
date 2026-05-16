@@ -2,6 +2,7 @@ import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { asc } from 'drizzle-orm'
+import { getTranslations } from 'next-intl/server'
 import { requireAdmin } from '@/auth/guards'
 import { db } from '@/db'
 import { users } from '@/db/schema'
@@ -10,6 +11,7 @@ import { UserList } from './UserList'
 
 export default async function AdminUsersPage() {
     const admin = await requireAdmin()
+    const t = await getTranslations()
     const rows = db
         .select({
             id: users.id,
@@ -25,7 +27,7 @@ export default async function AdminUsersPage() {
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={4}>
-                <Typography variant="h4">Users</Typography>
+                <Typography variant="h4">{t('admin.users.title')}</Typography>
                 <CreateUserForm />
                 <UserList rows={rows} currentUserId={admin.id} />
             </Stack>

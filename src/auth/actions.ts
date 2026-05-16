@@ -3,11 +3,17 @@
 import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { db } from '@/db'
 import { parseUserId } from '@/db/ids'
 import { sessions, users } from '@/db/schema'
 import { hasAnyUser, requireAdmin, requireSetupOrSession } from './guards'
-import { hashPassword, verifyPassword, WeakPasswordError } from './password'
+import {
+    hashPassword,
+    MIN_PASSWORD_LENGTH,
+    verifyPassword,
+    WeakPasswordError,
+} from './password'
 import {
     checkLoginAllowed,
     recordFailedLogin,
@@ -29,6 +35,7 @@ const ROLES = ['admin', 'user'] as const
 type Role = (typeof ROLES)[number]
 
 type FormState = { error?: string; success?: string }
+export type AuthFormState = FormState
 
 function readString(data: FormData, name: string): string {
     const value = data.get(name)
@@ -63,25 +70,26 @@ export async function setupAction(
     if (hasAnyUser()) {
         redirect('/login')
     }
+    const t = await getTranslations('errors')
     const email = readString(data, 'email').toLowerCase()
     const displayName = readString(data, 'displayName')
     const password = readString(data, 'password')
     const language = readLanguage(data, 'language')
     if (!isEmail(email)) {
-        return { error: 'Please enter a valid email address.' }
+        return { error: t('invalidEmail') }
     }
     if (!displayName) {
-        return { error: 'Display name is required.' }
+        return { error: t('displayNameRequired') }
     }
     if (!language) {
-        return { error: 'Pick a language.' }
+        return { error: t('pickLanguage') }
     }
     let passwordHash: string
     try {
         passwordHash = await hashPassword(password)
     } catch (err) {
         if (err instanceof WeakPasswordError) {
-            return { error: err.message }
+            return { error: t('weakPassword', { min: MIN_PASSWORD_LENGTH }) }
         }
         throw err
     }
@@ -99,24 +107,25 @@ export async function loginAction(
     _prev: FormState,
     data: FormData,
 ): Promise<FormState> {
+    const t = await getTranslations('errors')
     const email = readString(data, 'email').toLowerCase()
     const password = readString(data, 'password')
     if (!email || !password) {
-        return { error: 'Invalid email or password.' }
+        return { error: t('invalidLogin') }
     }
     const allowed = checkLoginAllowed(email)
     if (!allowed.allowed) {
-        return { error: 'Too many attempts. Try again later.' }
+        return { error: t('tooManyAttempts') }
     }
     const user = db.select().from(users).where(eq(users.email, email)).get()
     if (!user) {
         recordFailedLogin(email)
-        return { error: 'Invalid email or password.' }
+        return { error: t('invalidLogin') }
     }
     const ok = await verifyPassword(user.passwordHash, password)
     if (!ok) {
         recordFailedLogin(email)
-        return { error: 'Invalid email or password.' }
+        return { error: t('invalidLogin') }
     }
     recordSuccessfulLogin(email)
     const token = await createSession(user.id, await captureUserAgent())
@@ -129,26 +138,26 @@ export async function logoutAction(): Promise<void> {
     redirect('/login')
 }
 
-export type AuthFormState = FormState
-
 export async function updateOwnProfileAction(
     _prev: FormState,
     data: FormData,
 ): Promise<FormState> {
     const session = await requireSetupOrSession()
+    const tErr = await getTranslations('errors')
+    const tProfile = await getTranslations('settings.profile')
     const displayName = readString(data, 'displayName')
     const language = readLanguage(data, 'language')
     if (!displayName) {
-        return { error: 'Display name is required.' }
+        return { error: tErr('displayNameRequired') }
     }
     if (!language) {
-        return { error: 'Pick a language.' }
+        return { error: tErr('pickLanguage') }
     }
     db.update(users)
         .set({ displayName, language, updatedAt: new Date() })
         .where(eq(users.id, session.user.id))
         .run()
-    return { success: 'Profile updated.' }
+    return { success: tProfile('saved') }
 }
 
 export async function changeOwnPasswordAction(
@@ -156,6 +165,8 @@ export async function changeOwnPasswordAction(
     data: FormData,
 ): Promise<FormState> {
     const session = await requireSetupOrSession()
+    const tErr = await getTranslations('errors')
+    const tPwd = await getTranslations('settings.password')
     const current = readString(data, 'current')
     const next = readString(data, 'next')
     const user = db
@@ -168,14 +179,14 @@ export async function changeOwnPasswordAction(
     }
     const ok = await verifyPassword(user.passwordHash, current)
     if (!ok) {
-        return { error: 'Current password is incorrect.' }
+        return { error: tErr('currentPasswordWrong') }
     }
     let passwordHash: string
     try {
         passwordHash = await hashPassword(next)
     } catch (err) {
         if (err instanceof WeakPasswordError) {
-            return { error: err.message }
+            return { error: tErr('weakPassword', { min: MIN_PASSWORD_LENGTH }) }
         }
         throw err
     }
@@ -184,7 +195,7 @@ export async function changeOwnPasswordAction(
         .where(eq(users.id, user.id))
         .run()
     destroyAllSessionsExcept(user.id, session.sessionId)
-    return { success: 'Password changed.' }
+    return { success: tPwd('changed') }
 }
 
 export async function adminCreateUserAction(
@@ -192,22 +203,24 @@ export async function adminCreateUserAction(
     data: FormData,
 ): Promise<FormState> {
     await requireAdmin()
+    const tErr = await getTranslations('errors')
+    const tCreate = await getTranslations('admin.users.create')
     const email = readString(data, 'email').toLowerCase()
     const displayName = readString(data, 'displayName')
     const password = readString(data, 'password')
     const role = readRole(data, 'role')
     const language = readLanguage(data, 'language')
     if (!isEmail(email)) {
-        return { error: 'Please enter a valid email address.' }
+        return { error: tErr('invalidEmail') }
     }
     if (!displayName) {
-        return { error: 'Display name is required.' }
+        return { error: tErr('displayNameRequired') }
     }
     if (!role) {
-        return { error: 'Pick a role.' }
+        return { error: tErr('pickRole') }
     }
     if (!language) {
-        return { error: 'Pick a language.' }
+        return { error: tErr('pickLanguage') }
     }
     const existing = db
         .select({ id: users.id })
@@ -215,21 +228,21 @@ export async function adminCreateUserAction(
         .where(eq(users.email, email))
         .get()
     if (existing) {
-        return { error: 'A user with that email already exists.' }
+        return { error: tErr('emailExists') }
     }
     let passwordHash: string
     try {
         passwordHash = await hashPassword(password)
     } catch (err) {
         if (err instanceof WeakPasswordError) {
-            return { error: err.message }
+            return { error: tErr('weakPassword', { min: MIN_PASSWORD_LENGTH }) }
         }
         throw err
     }
     db.insert(users)
         .values({ email, displayName, passwordHash, role, language })
         .run()
-    return { success: `User ${email} created.` }
+    return { success: tCreate('created', { email }) }
 }
 
 export async function adminResetPasswordAction(
@@ -237,17 +250,19 @@ export async function adminResetPasswordAction(
     data: FormData,
 ): Promise<FormState> {
     await requireAdmin()
+    const tErr = await getTranslations('errors')
+    const tRow = await getTranslations('admin.users.row')
     const userId = parseUserId(readString(data, 'userId'))
     const tempPassword = readString(data, 'tempPassword')
     if (!userId) {
-        return { error: 'Invalid user.' }
+        return { error: tErr('invalidUser') }
     }
     let passwordHash: string
     try {
         passwordHash = await hashPassword(tempPassword)
     } catch (err) {
         if (err instanceof WeakPasswordError) {
-            return { error: err.message }
+            return { error: tErr('weakPassword', { min: MIN_PASSWORD_LENGTH }) }
         }
         throw err
     }
@@ -256,7 +271,7 @@ export async function adminResetPasswordAction(
         .where(eq(users.id, userId))
         .run()
     destroyAllSessionsForUser(userId)
-    return { success: 'Password reset.' }
+    return { success: tRow('passwordReset') }
 }
 
 export async function adminChangeRoleAction(
@@ -264,19 +279,21 @@ export async function adminChangeRoleAction(
     data: FormData,
 ): Promise<FormState> {
     const admin = await requireAdmin()
+    const tErr = await getTranslations('errors')
+    const tRow = await getTranslations('admin.users.row')
     const userId = parseUserId(readString(data, 'userId'))
     const role = readRole(data, 'role')
     if (!userId || !role) {
-        return { error: 'Invalid input.' }
+        return { error: tErr('invalidInput') }
     }
     if (userId === admin.id && role !== 'admin') {
-        return { error: "You can't demote yourself." }
+        return { error: tErr('cantDemoteSelf') }
     }
     db.update(users)
         .set({ role, updatedAt: new Date() })
         .where(eq(users.id, userId))
         .run()
-    return { success: 'Role updated.' }
+    return { success: tRow('roleSaved') }
 }
 
 export async function adminDeleteUserAction(
@@ -284,16 +301,18 @@ export async function adminDeleteUserAction(
     data: FormData,
 ): Promise<FormState> {
     const admin = await requireAdmin()
+    const tErr = await getTranslations('errors')
+    const tRow = await getTranslations('admin.users.row')
     const userId = parseUserId(readString(data, 'userId'))
     if (!userId) {
-        return { error: 'Invalid user.' }
+        return { error: tErr('invalidUser') }
     }
     if (userId === admin.id) {
-        return { error: "You can't delete your own account." }
+        return { error: tErr('cantDeleteSelf') }
     }
     db.delete(sessions).where(eq(sessions.userId, userId)).run()
     db.delete(users).where(eq(users.id, userId)).run()
-    return { success: 'User deleted.' }
+    return { success: tRow('deleted') }
 }
 
 export async function refreshSession(): Promise<void> {

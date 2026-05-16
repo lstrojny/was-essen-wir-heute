@@ -1,0 +1,167 @@
+{
+    "app": {
+        "title": "Was essen wir heute"
+    },
+    "nav": {
+        "ingredients": "Zutaten",
+        "settings": "Einstellungen",
+        "users": "Benutzer",
+        "logout": "Abmelden"
+    },
+    "home": {
+        "subtitle": "Eine Familien-App für Essensplanung.",
+        "signedInAs": "Angemeldet als {name} ({email})."
+    },
+    "setup": {
+        "title": "Willkommen — Admin-Konto einrichten",
+        "intro": "Dies ist der erste Start. Das angelegte Konto wird Admin.",
+        "email": "E-Mail",
+        "displayName": "Anzeigename",
+        "password": "Passwort (≥ 10 Zeichen)",
+        "language": "Sprache",
+        "submit": "Admin anlegen",
+        "submitting": "Wird angelegt …"
+    },
+    "login": {
+        "title": "Anmelden",
+        "email": "E-Mail",
+        "password": "Passwort",
+        "submit": "Anmelden",
+        "submitting": "Anmeldung läuft …"
+    },
+    "settings": {
+        "title": "Einstellungen",
+        "profile": {
+            "title": "Profil",
+            "displayName": "Anzeigename",
+            "language": "Sprache",
+            "save": "Speichern",
+            "saving": "Wird gespeichert …",
+            "saved": "Profil aktualisiert."
+        },
+        "password": {
+            "title": "Passwort ändern",
+            "current": "Aktuelles Passwort",
+            "next": "Neues Passwort (≥ 10 Zeichen)",
+            "submit": "Passwort ändern",
+            "submitting": "Wird gespeichert …",
+            "changed": "Passwort geändert."
+        }
+    },
+    "admin": {
+        "users": {
+            "title": "Benutzer",
+            "empty": "Noch keine Benutzer.",
+            "you": "du",
+            "create": {
+                "title": "Benutzer anlegen",
+                "email": "E-Mail",
+                "displayName": "Anzeigename",
+                "password": "Initiales Passwort (≥ 10 Zeichen)",
+                "role": "Rolle",
+                "language": "Sprache",
+                "submit": "Benutzer anlegen",
+                "submitting": "Wird angelegt …",
+                "created": "Benutzer {email} angelegt."
+            },
+            "row": {
+                "saveRole": "Rolle speichern",
+                "roleSaved": "Rolle aktualisiert.",
+                "tempPassword": "Temporäres Passwort",
+                "reset": "Zurücksetzen",
+                "passwordReset": "Passwort zurückgesetzt.",
+                "delete": "Löschen",
+                "deleted": "Benutzer gelöscht."
+            }
+        }
+    },
+    "languages": {
+        "de": "Deutsch",
+        "en": "English"
+    },
+    "roles": {
+        "admin": "Admin",
+        "user": "Benutzer"
+    },
+    "ingredientRoles": {
+        "starch": "Stärke",
+        "vegetable": "Gemüse",
+        "protein": "Protein",
+        "none": "Keine (Gewürz, Milchprodukt, …)"
+    },
+    "ingredients": {
+        "title": "Zutaten",
+        "new": "Neu",
+        "searchPlaceholder": "Namen oder Aliasse durchsuchen …",
+        "emptyAll": "Noch keine Zutaten.",
+        "emptySearch": "Keine Zutaten passen zu dieser Suche.",
+        "unnamed": "(ohne Namen)",
+        "untranslated": "nicht übersetzt",
+        "aliasCount": "{count, plural, =0 {keine Aliasse} one {1 Alias} other {# Aliasse}}",
+        "countUnitCount": "{count, plural, =0 {keine Stückeinheiten} one {1 Stückeinheit} other {# Stückeinheiten}}",
+        "density": "Dichte {value} g/ml",
+        "list": {
+            "rowSummary": "{aliases} · {countUnits}{density}"
+        },
+        "form": {
+            "newTitle": "Neue Zutat",
+            "saveCreate": "Anlegen",
+            "saveUpdate": "Speichern",
+            "saving": "Wird gespeichert …",
+            "cancel": "Abbrechen",
+            "delete": "Löschen",
+            "confirmDelete": "Diese Zutat löschen?",
+            "saved": "Zutat gespeichert.",
+            "canonical": {
+                "title": "Hauptnamen",
+                "intro": "Mindestens eine Sprache ist erforderlich.",
+                "de": "Deutsch",
+                "en": "Englisch"
+            },
+            "classification": {
+                "title": "Klassifikation",
+                "role": "Rolle",
+                "density": "Dichte (g/ml, optional)",
+                "densityHint": "z. B. Mehl ≈ 0,55, Wasser = 1, Olivenöl ≈ 0,92",
+                "notes": "Notizen"
+            },
+            "aliases": {
+                "title": "Aliasse",
+                "intro": "Sprachunabhängige Alternativnamen, nur für die Zuordnung verwendet.",
+                "addLabel": "Alias hinzufügen",
+                "add": "Hinzufügen",
+                "empty": "Noch keine Aliasse."
+            },
+            "countUnits": {
+                "title": "Stückeinheiten",
+                "intro": "Masse einer Einheit, z. B. eine Zwiebel ≈ 150 g.",
+                "unit": "Einheit",
+                "unitPlaceholder": "Stück",
+                "gramsPerUnit": "g / Einheit",
+                "remove": "Entfernen",
+                "add": "Stückeinheit hinzufügen"
+            }
+        }
+    },
+    "errors": {
+        "invalidLogin": "Ungültige E-Mail oder Passwort.",
+        "tooManyAttempts": "Zu viele Versuche. Später erneut versuchen.",
+        "weakPassword": "Passwort muss mindestens {min} Zeichen lang sein.",
+        "currentPasswordWrong": "Aktuelles Passwort ist falsch.",
+        "invalidEmail": "Bitte eine gültige E-Mail-Adresse eingeben.",
+        "displayNameRequired": "Anzeigename ist erforderlich.",
+        "pickLanguage": "Sprache wählen.",
+        "pickRole": "Rolle wählen.",
+        "emailExists": "Ein Benutzer mit dieser E-Mail existiert bereits.",
+        "invalidUser": "Ungültiger Benutzer.",
+        "invalidInput": "Ungültige Eingabe.",
+        "cantDemoteSelf": "Du kannst dich nicht selbst degradieren.",
+        "cantDeleteSelf": "Du kannst dein eigenes Konto nicht löschen.",
+        "canonicalRequired": "Bitte einen kanonischen Namen in mindestens einer Sprache angeben.",
+        "densityInvalid": "Dichte muss eine positive Zahl (g/ml) sein.",
+        "countUnitsInvalid": "Stückeinheiten brauchen einen Namen und eine positive Masse pro Einheit und dürfen pro Eintrag nicht doppelt vorkommen.",
+        "invalidIngredient": "Ungültige Zutaten-ID.",
+        "ingredientNotFound": "Zutat nicht gefunden.",
+        "insertFailed": "Einfügen fehlgeschlagen."
+    }
+}

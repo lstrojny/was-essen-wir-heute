@@ -2,6 +2,7 @@ import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { notFound } from 'next/navigation'
+import { getLocale, getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { parseIngredientId } from '@/db/ids'
 import { getIngredient } from '@/ingredients/queries'
@@ -13,6 +14,8 @@ export default async function EditIngredientPage({
     params: Promise<{ id: string }>
 }) {
     await requireSetupOrSession()
+    const t = await getTranslations()
+    const locale = await getLocale()
     const { id: idStr } = await params
     const id = parseIngredientId(idStr)
     if (!id) {
@@ -22,6 +25,11 @@ export default async function EditIngredientPage({
     if (!ingredient) {
         notFound()
     }
+    const primary =
+        locale === 'de' ? ingredient.canonicalDe : ingredient.canonicalEn
+    const fallback =
+        locale === 'de' ? ingredient.canonicalEn : ingredient.canonicalDe
+    const title = primary ?? fallback ?? t('ingredients.unnamed')
     const initialValues: IngredientFormInitial = {
         id: ingredient.id,
         canonicalDe: ingredient.canonicalDe ?? '',
@@ -38,11 +46,7 @@ export default async function EditIngredientPage({
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
-                <Typography variant="h4">
-                    {ingredient.canonicalEn ??
-                        ingredient.canonicalDe ??
-                        '(unnamed)'}
-                </Typography>
+                <Typography variant="h4">{title}</Typography>
                 <IngredientForm initialValues={initialValues} />
             </Stack>
         </Container>

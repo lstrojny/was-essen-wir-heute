@@ -5,6 +5,7 @@ import Button from '@mui/material/Button'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { logoutAction } from '@/auth/actions'
 
 export function AppNavBar({
@@ -14,6 +15,7 @@ export function AppNavBar({
     displayName: string
     isAdmin: boolean
 }) {
+    const t = useTranslations()
     return (
         <AppBar position="static" color="default" elevation={1}>
             <Toolbar sx={{ gap: 2 }}>
@@ -27,25 +29,25 @@ export function AppNavBar({
                         textDecoration: 'none',
                     }}
                 >
-                    Was essen wir heute
+                    {t('app.title')}
                 </Typography>
                 <Button component={Link} href="/ingredients" size="small">
-                    Ingredients
+                    {t('nav.ingredients')}
                 </Button>
                 <Typography variant="body2" color="text.secondary">
                     {displayName}
                 </Typography>
                 <Button component={Link} href="/settings" size="small">
-                    Settings
+                    {t('nav.settings')}
                 </Button>
                 {isAdmin ? (
                     <Button component={Link} href="/admin/users" size="small">
-                        Users
+                        {t('nav.users')}
                     </Button>
                 ) : null}
                 <form action={logoutAction}>
                     <Button type="submit" size="small">
-                        Log out
+                        {t('nav.logout')}
                     </Button>
                 </form>
             </Toolbar>

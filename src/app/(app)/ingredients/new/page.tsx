@@ -1,6 +1,7 @@
 import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { IngredientForm, type IngredientFormInitial } from '../IngredientForm'
 
@@ -17,10 +18,13 @@ const EMPTY: IngredientFormInitial = {
 
 export default async function NewIngredientPage() {
     await requireSetupOrSession()
+    const t = await getTranslations()
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
-                <Typography variant="h4">New ingredient</Typography>
+                <Typography variant="h4">
+                    {t('ingredients.form.newTitle')}
+                </Typography>
                 <IngredientForm initialValues={EMPTY} />
             </Stack>
         </Container>

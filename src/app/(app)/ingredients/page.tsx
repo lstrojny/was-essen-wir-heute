@@ -6,6 +6,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { listIngredients } from '@/ingredients/queries'
 import { IngredientList } from './IngredientList'
@@ -17,6 +18,7 @@ export default async function IngredientsPage({
     searchParams: Promise<{ q?: string }>
 }) {
     const session = await requireSetupOrSession()
+    const t = await getTranslations()
     const params = await searchParams
     const q = (params.q ?? '').trim()
     const rows = listIngredients(q)
@@ -32,14 +34,14 @@ export default async function IngredientsPage({
                     }}
                 >
                     <Typography variant="h4" sx={{ flexGrow: 1 }}>
-                        Ingredients
+                        {t('ingredients.title')}
                     </Typography>
                     <Link
                         href="/ingredients/new"
                         style={{ textDecoration: 'none' }}
                     >
                         <Button variant="contained" startIcon={<AddIcon />}>
-                            New
+                            {t('ingredients.new')}
                         </Button>
                     </Link>
                 </Box>
@@ -48,8 +50,8 @@ export default async function IngredientsPage({
                     <Paper sx={{ p: 3 }} variant="outlined">
                         <Typography color="text.secondary">
                             {q
-                                ? 'No ingredients match that search.'
-                                : 'No ingredients yet.'}
+                                ? t('ingredients.emptySearch')
+                                : t('ingredients.emptyAll')}
                         </Typography>
                     </Paper>
                 ) : (

@@ -1,0 +1,167 @@
+{
+    "app": {
+        "title": "Was essen wir heute"
+    },
+    "nav": {
+        "ingredients": "Ingredients",
+        "settings": "Settings",
+        "users": "Users",
+        "logout": "Log out"
+    },
+    "home": {
+        "subtitle": "A family meal-planning app.",
+        "signedInAs": "Signed in as {name} ({email})."
+    },
+    "setup": {
+        "title": "Welcome — set up your admin account",
+        "intro": "This is the first run. The account you create becomes the admin.",
+        "email": "Email",
+        "displayName": "Display name",
+        "password": "Password (≥ 10 chars)",
+        "language": "Language",
+        "submit": "Create admin",
+        "submitting": "Creating…"
+    },
+    "login": {
+        "title": "Log in",
+        "email": "Email",
+        "password": "Password",
+        "submit": "Log in",
+        "submitting": "Logging in…"
+    },
+    "settings": {
+        "title": "Settings",
+        "profile": {
+            "title": "Profile",
+            "displayName": "Display name",
+            "language": "Language",
+            "save": "Save",
+            "saving": "Saving…",
+            "saved": "Profile updated."
+        },
+        "password": {
+            "title": "Change password",
+            "current": "Current password",
+            "next": "New password (≥ 10 chars)",
+            "submit": "Change password",
+            "submitting": "Saving…",
+            "changed": "Password changed."
+        }
+    },
+    "admin": {
+        "users": {
+            "title": "Users",
+            "empty": "No users yet.",
+            "you": "you",
+            "create": {
+                "title": "Create a user",
+                "email": "Email",
+                "displayName": "Display name",
+                "password": "Initial password (≥ 10 chars)",
+                "role": "Role",
+                "language": "Language",
+                "submit": "Create user",
+                "submitting": "Creating…",
+                "created": "User {email} created."
+            },
+            "row": {
+                "saveRole": "Save role",
+                "roleSaved": "Role updated.",
+                "tempPassword": "Temp password",
+                "reset": "Reset",
+                "passwordReset": "Password reset.",
+                "delete": "Delete",
+                "deleted": "User deleted."
+            }
+        }
+    },
+    "languages": {
+        "de": "Deutsch",
+        "en": "English"
+    },
+    "roles": {
+        "admin": "Admin",
+        "user": "User"
+    },
+    "ingredientRoles": {
+        "starch": "Starch",
+        "vegetable": "Vegetable",
+        "protein": "Protein",
+        "none": "None (seasoning, dairy, …)"
+    },
+    "ingredients": {
+        "title": "Ingredients",
+        "new": "New",
+        "searchPlaceholder": "Search canonical names or aliases…",
+        "emptyAll": "No ingredients yet.",
+        "emptySearch": "No ingredients match that search.",
+        "unnamed": "(unnamed)",
+        "untranslated": "untranslated",
+        "aliasCount": "{count, plural, =0 {no aliases} one {1 alias} other {# aliases}}",
+        "countUnitCount": "{count, plural, =0 {no count units} one {1 count unit} other {# count units}}",
+        "density": "density {value} g/ml",
+        "list": {
+            "rowSummary": "{aliases} · {countUnits}{density}"
+        },
+        "form": {
+            "newTitle": "New ingredient",
+            "saveCreate": "Create",
+            "saveUpdate": "Save",
+            "saving": "Saving…",
+            "cancel": "Cancel",
+            "delete": "Delete",
+            "confirmDelete": "Delete this ingredient?",
+            "saved": "Ingredient saved.",
+            "canonical": {
+                "title": "Canonical names",
+                "intro": "At least one language is required.",
+                "de": "German",
+                "en": "English"
+            },
+            "classification": {
+                "title": "Classification",
+                "role": "Role",
+                "density": "Density (g/ml, optional)",
+                "densityHint": "e.g. flour ≈ 0.55, water = 1, olive oil ≈ 0.92",
+                "notes": "Notes"
+            },
+            "aliases": {
+                "title": "Aliases",
+                "intro": "Language-agnostic alternate names used only for matching.",
+                "addLabel": "Add alias",
+                "add": "Add",
+                "empty": "No aliases yet."
+            },
+            "countUnits": {
+                "title": "Count units",
+                "intro": "Mass of one unit, e.g. one onion ≈ 150 g.",
+                "unit": "Unit",
+                "unitPlaceholder": "piece",
+                "gramsPerUnit": "g / unit",
+                "remove": "Remove",
+                "add": "Add count unit"
+            }
+        }
+    },
+    "errors": {
+        "invalidLogin": "Invalid email or password.",
+        "tooManyAttempts": "Too many attempts. Try again later.",
+        "weakPassword": "Password must be at least {min} characters.",
+        "currentPasswordWrong": "Current password is incorrect.",
+        "invalidEmail": "Please enter a valid email address.",
+        "displayNameRequired": "Display name is required.",
+        "pickLanguage": "Pick a language.",
+        "pickRole": "Pick a role.",
+        "emailExists": "A user with that email already exists.",
+        "invalidUser": "Invalid user.",
+        "invalidInput": "Invalid input.",
+        "cantDemoteSelf": "You can't demote yourself.",
+        "cantDeleteSelf": "You can't delete your own account.",
+        "canonicalRequired": "Provide a canonical name in at least one language.",
+        "densityInvalid": "Density must be a positive number (g/ml).",
+        "countUnitsInvalid": "Count units must have a name and a positive grams-per-unit, and must not repeat within an entry.",
+        "invalidIngredient": "Invalid ingredient id.",
+        "ingredientNotFound": "Ingredient not found.",
+        "insertFailed": "Insert failed."
+    }
+}

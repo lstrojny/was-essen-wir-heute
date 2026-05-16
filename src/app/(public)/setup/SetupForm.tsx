@@ -8,22 +8,21 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { useTranslations } from 'next-intl'
 import { useActionState } from 'react'
 import { type AuthFormState, setupAction } from '@/auth/actions'
 
 const initial: AuthFormState = {}
 
 export function SetupForm() {
+    const t = useTranslations()
     const [state, formAction, pending] = useActionState(setupAction, initial)
     return (
         <Paper sx={{ p: 4, maxWidth: 480, width: '100%' }} elevation={3}>
             <Stack spacing={2} component="form" action={formAction}>
-                <Typography variant="h5">
-                    Welcome — set up your admin account
-                </Typography>
+                <Typography variant="h5">{t('setup.title')}</Typography>
                 <Typography variant="body2" color="text.secondary">
-                    This is the first run. The account you create becomes the
-                    admin.
+                    {t('setup.intro')}
                 </Typography>
                 {state.error ? (
                     <Alert severity="error">{state.error}</Alert>
@@ -31,27 +30,31 @@ export function SetupForm() {
                 <TextField
                     name="email"
                     type="email"
-                    label="Email"
+                    label={t('setup.email')}
                     autoComplete="email"
                     required
                 />
-                <TextField name="displayName" label="Display name" required />
+                <TextField
+                    name="displayName"
+                    label={t('setup.displayName')}
+                    required
+                />
                 <TextField
                     name="password"
                     type="password"
-                    label="Password (≥ 10 chars)"
+                    label={t('setup.password')}
                     autoComplete="new-password"
                     required
                 />
                 <TextField
                     name="language"
-                    label="Language"
+                    label={t('setup.language')}
                     select
                     defaultValue="de"
                     required
                 >
-                    <MenuItem value="de">Deutsch</MenuItem>
-                    <MenuItem value="en">English</MenuItem>
+                    <MenuItem value="de">{t('languages.de')}</MenuItem>
+                    <MenuItem value="en">{t('languages.en')}</MenuItem>
                 </TextField>
                 <Box>
                     <Button
@@ -60,7 +63,7 @@ export function SetupForm() {
                         disabled={pending}
                         fullWidth
                     >
-                        {pending ? 'Creating…' : 'Create admin'}
+                        {pending ? t('setup.submitting') : t('setup.submit')}
                     </Button>
                 </Box>
             </Stack>

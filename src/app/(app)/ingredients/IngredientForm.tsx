@@ -13,6 +13,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { type KeyboardEvent, useActionState, useState } from 'react'
 import type { IngredientId } from '@/db/ids'
 import {
@@ -40,6 +41,7 @@ export function IngredientForm({
 }: {
     initialValues: IngredientFormInitial
 }) {
+    const t = useTranslations()
     const router = useRouter()
     const action =
         initialValues.id === null
@@ -112,18 +114,20 @@ export function IngredientForm({
 
                 <Paper sx={{ p: 3 }} variant="outlined">
                     <Stack spacing={2}>
-                        <Typography variant="h6">Canonical names</Typography>
+                        <Typography variant="h6">
+                            {t('ingredients.form.canonical.title')}
+                        </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            At least one language is required.
+                            {t('ingredients.form.canonical.intro')}
                         </Typography>
                         <TextField
                             name="canonicalDe"
-                            label="German"
+                            label={t('ingredients.form.canonical.de')}
                             defaultValue={initialValues.canonicalDe}
                         />
                         <TextField
                             name="canonicalEn"
-                            label="English"
+                            label={t('ingredients.form.canonical.en')}
                             defaultValue={initialValues.canonicalEn}
                         />
                     </Stack>
@@ -131,31 +135,41 @@ export function IngredientForm({
 
                 <Paper sx={{ p: 3 }} variant="outlined">
                     <Stack spacing={2}>
-                        <Typography variant="h6">Classification</Typography>
+                        <Typography variant="h6">
+                            {t('ingredients.form.classification.title')}
+                        </Typography>
                         <TextField
                             name="role"
-                            label="Role"
+                            label={t('ingredients.form.classification.role')}
                             select
                             defaultValue={initialValues.role}
                             required
                         >
-                            <MenuItem value="starch">Starch</MenuItem>
-                            <MenuItem value="vegetable">Vegetable</MenuItem>
-                            <MenuItem value="protein">Protein</MenuItem>
+                            <MenuItem value="starch">
+                                {t('ingredientRoles.starch')}
+                            </MenuItem>
+                            <MenuItem value="vegetable">
+                                {t('ingredientRoles.vegetable')}
+                            </MenuItem>
+                            <MenuItem value="protein">
+                                {t('ingredientRoles.protein')}
+                            </MenuItem>
                             <MenuItem value="none">
-                                None (seasoning, dairy, …)
+                                {t('ingredientRoles.none')}
                             </MenuItem>
                         </TextField>
                         <TextField
                             name="density"
-                            label="Density (g/ml, optional)"
+                            label={t('ingredients.form.classification.density')}
                             defaultValue={initialValues.density}
-                            helperText="e.g. flour ≈ 0.55, water = 1, olive oil ≈ 0.92"
+                            helperText={t(
+                                'ingredients.form.classification.densityHint',
+                            )}
                             inputMode="decimal"
                         />
                         <TextField
                             name="notes"
-                            label="Notes"
+                            label={t('ingredients.form.classification.notes')}
                             defaultValue={initialValues.notes}
                             multiline
                             minRows={2}
@@ -165,10 +179,11 @@ export function IngredientForm({
 
                 <Paper sx={{ p: 3 }} variant="outlined">
                     <Stack spacing={2}>
-                        <Typography variant="h6">Aliases</Typography>
+                        <Typography variant="h6">
+                            {t('ingredients.form.aliases.title')}
+                        </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Language-agnostic alternate names used only for
-                            matching.
+                            {t('ingredients.form.aliases.intro')}
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                             {aliases.map((alias) => (
@@ -183,20 +198,20 @@ export function IngredientForm({
                                     variant="caption"
                                     color="text.secondary"
                                 >
-                                    No aliases yet.
+                                    {t('ingredients.form.aliases.empty')}
                                 </Typography>
                             ) : null}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             <TextField
-                                label="Add alias"
+                                label={t('ingredients.form.aliases.addLabel')}
                                 value={aliasDraft}
                                 onChange={(e) => setAliasDraft(e.target.value)}
                                 onKeyDown={handleAliasKey}
                                 fullWidth
                             />
                             <Button onClick={addAlias} variant="outlined">
-                                Add
+                                {t('ingredients.form.aliases.add')}
                             </Button>
                         </Box>
                         {aliases.map((alias) => (
@@ -212,9 +227,11 @@ export function IngredientForm({
 
                 <Paper sx={{ p: 3 }} variant="outlined">
                     <Stack spacing={2}>
-                        <Typography variant="h6">Count units</Typography>
+                        <Typography variant="h6">
+                            {t('ingredients.form.countUnits.title')}
+                        </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Mass of one unit, e.g. one onion ≈ 150 g.
+                            {t('ingredients.form.countUnits.intro')}
                         </Typography>
                         {countUnits.map((cu, index) => (
                             <Box
@@ -228,8 +245,12 @@ export function IngredientForm({
                             >
                                 <TextField
                                     name="countUnitName"
-                                    label="Unit"
-                                    placeholder="piece"
+                                    label={t(
+                                        'ingredients.form.countUnits.unit',
+                                    )}
+                                    placeholder={t(
+                                        'ingredients.form.countUnits.unitPlaceholder',
+                                    )}
                                     value={cu.unit}
                                     onChange={(e) =>
                                         updateCountUnit(
@@ -242,7 +263,9 @@ export function IngredientForm({
                                 />
                                 <TextField
                                     name="countUnitGrams"
-                                    label="g / unit"
+                                    label={t(
+                                        'ingredients.form.countUnits.gramsPerUnit',
+                                    )}
                                     value={cu.gramsPerUnit}
                                     onChange={(e) =>
                                         updateCountUnit(
@@ -256,7 +279,9 @@ export function IngredientForm({
                                 />
                                 <IconButton
                                     onClick={() => removeCountUnit(index)}
-                                    aria-label="Remove"
+                                    aria-label={t(
+                                        'ingredients.form.countUnits.remove',
+                                    )}
                                 >
                                     <DeleteIcon />
                                 </IconButton>
@@ -268,7 +293,7 @@ export function IngredientForm({
                                 startIcon={<AddIcon />}
                                 variant="outlined"
                             >
-                                Add count unit
+                                {t('ingredients.form.countUnits.add')}
                             </Button>
                         </Box>
                     </Stack>
@@ -282,16 +307,16 @@ export function IngredientForm({
                     disabled={pending}
                 >
                     {pending
-                        ? 'Saving…'
+                        ? t('ingredients.form.saving')
                         : initialValues.id === null
-                          ? 'Create'
-                          : 'Save'}
+                          ? t('ingredients.form.saveCreate')
+                          : t('ingredients.form.saveUpdate')}
                 </Button>
                 <Button
                     onClick={() => router.push('/ingredients')}
                     variant="text"
                 >
-                    Cancel
+                    {t('ingredients.form.cancel')}
                 </Button>
                 {initialValues.id !== null ? (
                     <DeleteButton id={initialValues.id} />
@@ -302,11 +327,12 @@ export function IngredientForm({
 }
 
 function DeleteButton({ id }: { id: IngredientId }) {
+    const t = useTranslations()
     return (
         <form
             action={deleteIngredientAction}
             onSubmit={(e) => {
-                if (!confirm('Delete this ingredient?')) {
+                if (!confirm(t('ingredients.form.confirmDelete'))) {
                     e.preventDefault()
                 }
             }}
@@ -314,7 +340,7 @@ function DeleteButton({ id }: { id: IngredientId }) {
         >
             <input type="hidden" name="id" value={id} />
             <Button type="submit" color="error" startIcon={<DeleteIcon />}>
-                Delete
+                {t('ingredients.form.delete')}
             </Button>
         </form>
     )

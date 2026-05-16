@@ -9,6 +9,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { useTranslations } from 'next-intl'
 import { useActionState } from 'react'
 import {
     type AuthFormState,
@@ -30,6 +31,7 @@ type Row = {
 const initial: AuthFormState = {}
 
 function RoleForm({ row, isSelf }: { row: Row; isSelf: boolean }) {
+    const t = useTranslations()
     const [state, formAction, pending] = useActionState(
         adminChangeRoleAction,
         initial,
@@ -45,11 +47,11 @@ function RoleForm({ row, isSelf }: { row: Row; isSelf: boolean }) {
                     size="small"
                     disabled={isSelf}
                 >
-                    <MenuItem value="admin">Admin</MenuItem>
-                    <MenuItem value="user">User</MenuItem>
+                    <MenuItem value="admin">{t('roles.admin')}</MenuItem>
+                    <MenuItem value="user">{t('roles.user')}</MenuItem>
                 </TextField>
                 <Button type="submit" size="small" disabled={pending || isSelf}>
-                    Save role
+                    {t('admin.users.row.saveRole')}
                 </Button>
                 {state.error ? (
                     <Typography variant="caption" color="error">
@@ -67,6 +69,7 @@ function RoleForm({ row, isSelf }: { row: Row; isSelf: boolean }) {
 }
 
 function ResetPasswordForm({ row }: { row: Row }) {
+    const t = useTranslations()
     const [state, formAction, pending] = useActionState(
         adminResetPasswordAction,
         initial,
@@ -79,11 +82,11 @@ function ResetPasswordForm({ row }: { row: Row }) {
                     name="tempPassword"
                     type="password"
                     size="small"
-                    label="Temp password"
+                    label={t('admin.users.row.tempPassword')}
                     required
                 />
                 <Button type="submit" size="small" disabled={pending}>
-                    Reset
+                    {t('admin.users.row.reset')}
                 </Button>
                 {state.error ? (
                     <Typography variant="caption" color="error">
@@ -101,6 +104,7 @@ function ResetPasswordForm({ row }: { row: Row }) {
 }
 
 function DeleteForm({ row, isSelf }: { row: Row; isSelf: boolean }) {
+    const t = useTranslations()
     const [state, formAction, pending] = useActionState(
         adminDeleteUserAction,
         initial,
@@ -115,7 +119,7 @@ function DeleteForm({ row, isSelf }: { row: Row; isSelf: boolean }) {
                     color="error"
                     disabled={pending || isSelf}
                 >
-                    Delete
+                    {t('admin.users.row.delete')}
                 </Button>
                 {state.error ? (
                     <Typography variant="caption" color="error">
@@ -134,8 +138,9 @@ export function UserList({
     rows: Row[]
     currentUserId: UserId
 }) {
+    const t = useTranslations()
     if (rows.length === 0) {
-        return <Alert severity="info">No users yet.</Alert>
+        return <Alert severity="info">{t('admin.users.empty')}</Alert>
     }
     return (
         <Stack spacing={2}>
@@ -167,7 +172,7 @@ export function UserList({
                                     size="small"
                                 />
                                 <Chip
-                                    label={row.role}
+                                    label={t(`roles.${row.role}`)}
                                     size="small"
                                     color={
                                         row.role === 'admin'
@@ -177,7 +182,7 @@ export function UserList({
                                 />
                                 {isSelf ? (
                                     <Chip
-                                        label="you"
+                                        label={t('admin.users.you')}
                                         size="small"
                                         variant="outlined"
                                     />
