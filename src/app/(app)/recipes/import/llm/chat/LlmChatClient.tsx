@@ -4,6 +4,8 @@ import { useChat } from '@ai-sdk/react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
+import CircularProgress from '@mui/material/CircularProgress'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -19,6 +21,56 @@ import type {
     RecipePickerRow,
 } from '@/recipes/queries'
 import { RecipeForm, type RecipeFormInitial } from '../../../RecipeForm'
+
+type ToolPart = {
+    type: string
+    state?: string
+    input?: unknown
+    output?: unknown
+}
+
+function summarizeToolResult(output: unknown): string | null {
+    if (output === null || output === undefined) return null
+    if (typeof output !== 'object') return String(output)
+    const o = output as Record<string, unknown>
+    if (typeof o.error === 'string') return `error: ${o.error}`
+    if (typeof o.count === 'number') return `${o.count} result(s)`
+    if (o.ok === true) {
+        if (typeof o.aggregateAverage === 'number') {
+            return `ok · avg ${o.aggregateAverage.toFixed(1)} (${o.aggregateCount})`
+        }
+        return 'ok'
+    }
+    if (Array.isArray(o.cuisines)) return `${o.cuisines.length} cuisines`
+    if (typeof o.average === 'number') {
+        return `avg ${o.average.toFixed(1)} (${o.count ?? '?'})`
+    }
+    if (typeof o.id === 'string') return 'fetched'
+    return null
+}
+
+function ToolCallChip({ part }: { part: ToolPart }) {
+    const name = part.type.replace(/^tool-/, '')
+    const running =
+        part.state === 'partial-call' ||
+        part.state === 'call' ||
+        part.state === 'input-streaming' ||
+        part.state === 'input-available'
+    const resultSummary = summarizeToolResult(part.output)
+    return (
+        <Chip
+            size="small"
+            variant="outlined"
+            icon={
+                running ? (
+                    <CircularProgress size={12} thickness={6} />
+                ) : undefined
+            }
+            label={resultSummary ? `${name} · ${resultSummary}` : name}
+            sx={{ alignSelf: 'flex-start' }}
+        />
+    )
+}
 
 export function LlmChatClient({
     cuisines,
@@ -103,39 +155,61 @@ export function LlmChatClient({
                         </Typography>
                     ) : null}
                     {messages.map((m) => {
-                        const text = m.parts
-                            .filter(
-                                (p): p is { type: 'text'; text: string } =>
-                                    p.type === 'text',
-                            )
-                            .map((p) => p.text)
-                            .join('')
                         const isUser = m.role === 'user'
                         return (
-                            <Box
+                            <Stack
                                 key={m.id}
+                                spacing={1}
                                 sx={{
                                     alignSelf: isUser
                                         ? 'flex-end'
                                         : 'flex-start',
                                     maxWidth: '85%',
-                                    p: 1.5,
-                                    borderRadius: 1,
-                                    backgroundColor: isUser
-                                        ? 'primary.main'
-                                        : 'action.hover',
-                                    color: isUser
-                                        ? 'primary.contrastText'
-                                        : 'text.primary',
                                 }}
                             >
-                                <Typography
-                                    variant="body2"
-                                    sx={{ whiteSpace: 'pre-wrap' }}
-                                >
-                                    {text}
-                                </Typography>
-                            </Box>
+                                {m.parts.map((part, idx) => {
+                                    if (part.type === 'text') {
+                                        return (
+                                            <Box
+                                                // biome-ignore lint/suspicious/noArrayIndexKey: message parts are append-only and stable
+                                                key={`${m.id}-${idx}`}
+                                                sx={{
+                                                    p: 1.5,
+                                                    borderRadius: 1,
+                                                    backgroundColor: isUser
+                                                        ? 'primary.main'
+                                                        : 'action.hover',
+                                                    color: isUser
+                                                        ? 'primary.contrastText'
+                                                        : 'text.primary',
+                                                }}
+                                            >
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        whiteSpace: 'pre-wrap',
+                                                    }}
+                                                >
+                                                    {part.text}
+                                                </Typography>
+                                            </Box>
+                                        )
+                                    }
+                                    if (
+                                        typeof part.type === 'string' &&
+                                        part.type.startsWith('tool-')
+                                    ) {
+                                        return (
+                                            <ToolCallChip
+                                                // biome-ignore lint/suspicious/noArrayIndexKey: message parts are append-only and stable
+                                                key={`${m.id}-${idx}`}
+                                                part={part}
+                                            />
+                                        )
+                                    }
+                                    return null
+                                })}
+                            </Stack>
                         )
                     })}
                     {error ? (

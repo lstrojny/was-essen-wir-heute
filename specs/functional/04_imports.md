@@ -116,7 +116,11 @@ the user reviews; unmatched names auto-link or auto-create per
 The user opens a chat with the LLM at `/recipes/import/llm/chat` and
 converses freely (clarifying questions, ideas, "make it lighter", "use
 chicken thighs"). The LLM streams responses, asking questions or
-proposing ideas until the user is satisfied. When the user clicks
+proposing ideas until the user is satisfied. The model does **not**
+ask about serving count: ingredient amounts are normalized to
+per-serving on save and the cook scales on the recipe page, so the
+question is never useful. The synthesizer defaults to a family-sized
+4 unless the user volunteers a different number. When the user clicks
 **"Save this recipe"**, the conversation history is sent to a
 `synthesizeRecipeFromMessages` operation (see `specs/tech/02_llm.md`)
 that produces the structured recipe in the same schema as Phase A. The
@@ -126,6 +130,24 @@ The chat transcript is **not** persisted with the saved recipe — it
 exists only in client state during the session. Cancellation works at
 both layers: aborting a streaming response stops the stream; aborting
 the save-from-messages call cancels the structured emit.
+
+#### Data-aware chat
+
+The chat can consult the user's existing data via a tool catalog (see
+`specs/tech/02_llm.md`). The model can:
+
+- search and read recipes, ingredients, cuisines, and ratings (so the
+  user can ask things like "which Italian recipes do I have?", "what's
+  my highest-rated dish with chicken?", or "do I already have a pad
+  thai recipe?");
+- set or clear the **current user's own rating** for a recipe ("rate
+  this one 4 stars").
+
+Tool invocations are surfaced inline in the chat transcript so the
+user can see which tool the model called and what it found, without
+the raw payload. The model summarises tool results in its next text
+turn. Recipe and ingredient mutations beyond ratings are deferred to a
+later slice.
 
 ### Field mapping
 

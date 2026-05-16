@@ -37,11 +37,14 @@ operations, one per call-site:
   single prompt. Used by the LLM chat import Phase B
   (see `04_imports.md`) when the user clicks "Save this recipe" at the
   end of a conversation.
-- `chatAboutRecipe(messages)` — free-form streaming text response.
+- `chatAboutRecipe(messages, tools)` — free-form streaming text response.
   Implements the conversation turns of the chat import: clarifying
   questions, proposed ideas, "make it lighter". Uses the AI SDK's
   `streamText` so the UI can render tokens as they arrive. The
   structured emit happens separately via `synthesizeRecipeFromMessages`.
+  The operation also accepts a **tool catalog** (see *Chat tools*
+  below) so the model can consult and mutate the user's data while
+  conversing.
 - `enrichSpoonacularImport(detail)` — see `04_imports.md`.
 - `translateText(text, from, to)` — used by the on-demand translate
   action in `06_i18n.md`.
@@ -52,6 +55,62 @@ operations, one per call-site:
 Each operation has its own typed input and output. Feature code never
 constructs prompts or sees raw model responses — that lives inside the
 module.
+
+## Chat tools
+
+`chatAboutRecipe` exposes a catalog of **tools** the model may call
+between user turns. Tools run server-side under the authenticated
+user's session; the model never sees a raw connection string or
+credentials. The AI SDK's multi-step tool-calling loop drives the
+conversation: the model emits tool calls, the route executes them,
+results are streamed back, the model continues.
+
+The catalog lives in `src/llm/tools.ts`. Each tool has a description
+(model-facing English text), a Zod `inputSchema`, and a server-side
+`execute` handler. All handlers run with the *current session user's
+identity* — there is no escalation. Mutations are scoped to what the
+user is allowed to do in the UI.
+
+### Phase 1 — read + rating writes (built)
+
+Read tools:
+
+- `search_recipes` — by free-text query, cuisine key, complete-only.
+  Returns id, titles, cuisine, rolled-up times, complete-meal flag,
+  aggregate rating, current user's rating.
+- `get_recipe` — full recipe detail including ingredients, steps, and
+  component references.
+- `list_cuisines` — controlled vocabulary (key + DE/EN labels).
+- `list_ingredients` — list or search the central catalog. Omit query
+  for a full list; pass a substring to match canonical names and
+  aliases.
+- `get_ingredient` — full ingredient detail including aliases, count
+  units, density, role.
+- `get_recipes_using_ingredient` — recipes that reference a given
+  central ingredient.
+- `get_recipe_ratings` — aggregate plus per-user breakdown for a recipe.
+
+Write tools (scoped to the session user):
+
+- `set_my_rating(recipe_id, score)` — sets/updates the current user's
+  rating for a recipe.
+- `clear_my_rating(recipe_id)` — removes the current user's rating.
+
+### Phase 2 — recipe + ingredient CRUD (deferred)
+
+`create_recipe`, `update_recipe`, `delete_recipe`, plus the analogous
+ingredient tools, are deferred until the chat surfaces a clear need.
+They require mirroring the form-action input shape (per-serving
+normalization, central-ingredient resolution, cycle detection) and
+warrant a separate slice.
+
+### Tool-result rendering
+
+The chat UI shows tool invocations inline between assistant turns so
+the user can see what the model consulted: tool name, a compact summary
+of the arguments, and a one-line result summary (e.g. "found 3
+recipes"). Tool results themselves are not displayed in full; the
+model summarises them in its subsequent text turn.
 
 ## Model choice per call-site
 

@@ -1,6 +1,7 @@
 import { anthropic } from '@ai-sdk/anthropic'
-import { generateObject, type ModelMessage, streamText } from 'ai'
+import { generateObject, type ModelMessage, stepCountIs, streamText } from 'ai'
 import { z } from 'zod'
+import type { ChatTools } from '@/llm/tools'
 import type { RecipeDetail as SpoonacularRecipe } from '@/spoonacular/types'
 
 const DEFAULT_MODEL =
@@ -252,16 +253,28 @@ function buildChatSystemPrompt(activeLanguage: 'de' | 'en'): string {
     const languageName =
         activeLanguage === 'de' ? 'German (de)' : 'English (en)'
     return [
-        'You help a home cook design a recipe to save to their family recipe catalog. The user will chat with you in natural language; you ask clarifying questions (servings, cuisine, dietary constraints, what is on hand) and propose ideas.',
+        'You help a home cook design a recipe to save to their family recipe catalog. The user will chat with you in natural language; you ask clarifying questions (cuisine, dietary constraints, what is on hand) and propose ideas.',
         '',
         `Reply in ${languageName} unless the user clearly writes in the other supported language.`,
         '',
         'Conversational rules:',
         '- Keep responses short and concrete; one or two short paragraphs at most.',
         '- Ask one or two clarifying questions per turn when the brief is vague; never bury the cook in a wall of questions.',
+        '- Do NOT ask about serving count. The app stores per-serving amounts and lets the cook scale on the recipe page, so the question is never useful. Assume 4 servings unless the user volunteers a different number.',
         '- Propose actual dishes by name when the user has given enough signal. Describe them briefly so the cook can pick or adjust.',
         '- When the user has converged on a recipe and indicates they want to save it, confirm what you understood in one or two sentences and remind them to click the "Save this recipe" button — DO NOT emit a structured recipe yourself. The app handles the structured emit on the save click.',
-        '- Stay focused on recipe design. Avoid unrelated tangents.',
+        "- Stay focused on recipe design and the user's catalog. Avoid unrelated tangents.",
+        '',
+        "You have access to the user's recipe and ingredient catalogs through tools. Use them whenever the user asks questions about what they already have, or when consulting the catalog would let you make a better suggestion:",
+        "- 'do I have X?', 'what Italian recipes do I have?', 'which complete meals can I cook?' → call search_recipes",
+        "- 'tell me about this recipe' → call get_recipe with the id",
+        "- 'what ingredients do I have?', 'show me my proteins', 'do I have ginger?' → call list_ingredients (omit query for a full list, or pass a substring to filter)",
+        "- 'what can I make with chicken?' → call list_ingredients with query 'chicken' to resolve the ingredient id, then call get_recipes_using_ingredient",
+        "- 'how is this rated?' → call get_recipe_ratings",
+        "- 'rate this 4 stars' / 'forget my rating' → confirm intent, then call set_my_rating or clear_my_rating",
+        '',
+        "Before calling a write tool (set_my_rating, clear_my_rating), confirm the user's intent in your message and only call the tool after they have asked for the action.",
+        'When a tool returns, summarise what you found in plain language. Never paste raw JSON into your reply. If a tool fails (returns an `error` field), tell the user briefly and suggest a next step.',
     ].join('\n')
 }
 
@@ -269,16 +282,17 @@ export type ChatTextInput = {
     messages: ModelMessage[]
     activeLanguage: 'de' | 'en'
     abortSignal?: AbortSignal
+    tools?: ChatTools
 }
 
-export function chatAboutRecipe(
-    input: ChatTextInput,
-): ReturnType<typeof streamText> {
+export function chatAboutRecipe(input: ChatTextInput) {
     return streamText({
         model: anthropic(DEFAULT_MODEL),
         system: buildChatSystemPrompt(input.activeLanguage),
         messages: input.messages,
         abortSignal: input.abortSignal,
+        tools: input.tools,
+        stopWhen: stepCountIs(8),
     })
 }
 

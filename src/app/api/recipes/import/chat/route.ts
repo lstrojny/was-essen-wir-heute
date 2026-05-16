@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getAuthenticatedSession } from '@/auth/session'
 import { resolveLocale } from '@/i18n/locale'
 import { chatAboutRecipe } from '@/llm/recipe-synthesis'
+import { buildChatTools } from '@/llm/tools'
 
 type RequestBody = {
     messages?: UIMessage[]
@@ -23,10 +24,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'empty_messages' }, { status: 400 })
     }
     const activeLanguage = await resolveLocale()
+    const tools = buildChatTools({ user: session.user, activeLanguage })
     const result = chatAboutRecipe({
         messages: await convertToModelMessages(body.messages),
         activeLanguage,
         abortSignal: request.signal,
+        tools,
     })
     return result.toUIMessageStreamResponse()
 }
