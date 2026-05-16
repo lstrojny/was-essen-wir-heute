@@ -52,6 +52,27 @@ Unlinked ingredients display correctly but are ignored for main-ingredient
 derivation and for any feature that depends on the catalog (future shopping
 list, ingredient-based search, etc.).
 
+### Naming convention
+
+The ingredient *name* is the bare canonical noun. Qualifiers describing
+form, preparation, sourcing, or size are **dropped** from the name and,
+where relevant, moved into the recipe's step text instead.
+
+- Drop **form/state**: fresh, dried, frozen, raw, cooked.
+- Drop **preparation**: minced, chopped, diced, sliced, grated, peeled,
+  crushed.
+- Drop **sourcing/quality**: organic, free-range, extra-virgin, premium.
+- Drop **size**: large, small, medium.
+- **Keep** qualifiers that change the substance: `ground beef` ≠ `beef`
+  (different cut); `coconut milk` ≠ `coconut` (different product);
+  compound names like `soy sauce` are single nouns.
+
+Examples: "Fresh parsley, minced" → name `Parsley`; "1 large yellow
+onion, finely chopped" → name `Onion`, amount `1`, unit `piece`;
+"Extra-virgin olive oil" → name `Olive oil`. Imports (Spoonacular, LLM
+chat) and the manual-entry UI all follow this convention; this keeps
+catalog matching reliable.
+
 On import:
 
 - **Spoonacular**: the enrichment LLM proposes a central-list match for each

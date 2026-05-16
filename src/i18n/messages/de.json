@@ -176,11 +176,35 @@
         "componentCycle": "Diese Komponente würde einen Zyklus erzeugen (sie referenziert dieses Rezept bereits).",
         "componentSelfReference": "Ein Rezept kann sich nicht selbst als Komponente referenzieren.",
         "formServingsInvalid": "Portionsangabe muss eine positive ganze Zahl sein.",
-        "recipeReferencedByComposites": "Dieses Rezept wird als Komponente verwendet von: {titles}. Bitte zuerst dort entfernen."
+        "recipeReferencedByComposites": "Dieses Rezept wird als Komponente verwendet von: {titles}. Bitte zuerst dort entfernen.",
+        "llmPromptRequired": "Bitte eine Beschreibung eingeben.",
+        "llmSynthesisFailed": "KI-Aufruf fehlgeschlagen: {detail}"
     },
     "recipes": {
         "title": "Rezepte",
         "new": "Neu",
+        "importLlm": "Mit KI importieren",
+        "import": {
+            "llm": {
+                "title": "Rezept mit KI importieren",
+                "intro": "Beschreibe das Rezept, das du speichern möchtest. Die KI strukturiert es; danach kannst du jedes Feld bearbeiten.",
+                "promptTitle": "Beschreibung",
+                "promptPlaceholder": "z. B. \"Schnelles Pad Thai für 4 Personen mit Tofu und Erdnüssen\"",
+                "generate": "Erzeugen",
+                "generating": "KI denkt nach …",
+                "cancel": "Abbrechen",
+                "previewTitle": "Vorschau",
+                "previewIntro": "Prüfe und bearbeite die Felder unten, dann speichern."
+            }
+        },
+        "refine": {
+            "title": "Mit KI verfeinern",
+            "intro": "Beschreibe eine Änderung, z. B. \"vegetarisch machen\" oder \"Salz halbieren\". Geänderte Felder werden hervorgehoben.",
+            "promptPlaceholder": "z. B. \"vegetarisch machen\"",
+            "refine": "Verfeinern",
+            "refining": "KI denkt nach …",
+            "cancel": "Abbrechen"
+        },
         "searchPlaceholder": "Titel durchsuchen …",
         "cuisine": "Küche",
         "allCuisines": "Alle Küchen",

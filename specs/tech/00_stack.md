@@ -60,14 +60,16 @@ authenticate separately.
 
 - All LLM calls (import enrichment, chat-import recipe synthesis,
   translation, on-demand translate, future suggestion features) go through
-  an **LLM gateway** that exposes both **Claude** and **OpenAI** models
-  behind a single API.
+  the **Vercel AI SDK** (`ai` package), which abstracts provider choice
+  behind a uniform call shape.
+- v1 provider is **Anthropic Claude** via `@ai-sdk/anthropic`. Adding
+  OpenAI later is a config change at the call-site (`@ai-sdk/openai`).
 - Provider/model choice is **per call-site**, not global. Different
   features pick the model that fits them: a cheap model for alias
   suggestions, a stronger one for chat-import recipe synthesis or
   translation review.
-- Details (gateway URL shape, call interface, retries, prompt boundaries,
-  failure behaviour) live in `02_llm.md`.
+- Details (call interface, retries, prompt boundaries, failure
+  behaviour) live in `02_llm.md`.
 
 ## External APIs
 
@@ -90,10 +92,6 @@ authenticate separately.
 
 ## Open questions
 
-- **LLM gateway specifics**: which gateway product/setup (LiteLLM,
-  OpenRouter, Anthropic's gateway, custom), its API shape, and how model
-  identifiers are referenced from the app. Resolved input is needed for
-  `02_llm.md` to be concrete.
 - **Background work**: enrichment and translation calls can take several
   seconds. Whether long LLM-driven flows run synchronously (with a
   loading state) or as background jobs that update the preview when

@@ -128,6 +128,17 @@ composite itself and are not rolled up.
 - **Delete** a recipe. Effect on past meal plans is an open question — see
   `02_meal_plan.md`.
 - **Rate** — see below.
+- **Refine with AI**. On any recipe (new or existing, including the
+  unsaved preview that follows an LLM import), the user can describe a
+  change in natural language ("make this vegetarian", "halve the salt",
+  "use chicken thighs instead of breast") and have an LLM produce a
+  modified version of the same recipe. The form is updated in place;
+  changed scalar fields and changed ingredient/step rows are visually
+  highlighted so the user can review the AI's diff before saving.
+  Editing a highlighted field clears its highlight. The action is
+  cancellable mid-flight; cancellation leaves the form untouched. The
+  LLM operation underlying this is `synthesizeRecipe` in refine mode
+  (see `specs/tech/02_llm.md`).
 
 ## Ratings
 

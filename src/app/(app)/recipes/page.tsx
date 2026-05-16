@@ -46,6 +46,14 @@ export default async function RecipesPage({
                         {t('recipes.title')}
                     </Typography>
                     <Link
+                        href="/recipes/import/llm"
+                        style={{ textDecoration: 'none' }}
+                    >
+                        <Button variant="outlined">
+                            {t('recipes.importLlm')}
+                        </Button>
+                    </Link>
+                    <Link
                         href="/recipes/new"
                         style={{ textDecoration: 'none' }}
                     >

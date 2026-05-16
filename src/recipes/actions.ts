@@ -332,6 +332,16 @@ function writeChildRows(
     }
 }
 
+const SOURCES = ['manual', 'spoonacular', 'llm-chat'] as const
+type RecipeSource = (typeof SOURCES)[number]
+
+function readSource(data: FormData): RecipeSource {
+    const value = readString(data, 'source')
+    return (SOURCES as readonly string[]).includes(value)
+        ? (value as RecipeSource)
+        : 'manual'
+}
+
 export async function createRecipeAction(
     _prev: RecipeFormState,
     data: FormData,
@@ -342,6 +352,7 @@ export async function createRecipeAction(
     if (typeof fields === 'string') {
         return { error: tErr(fields) }
     }
+    const source = readSource(data)
     const activeLanguage = await resolveLocale()
     let newId: RecipeId | undefined
     db.transaction(() => {
@@ -359,7 +370,7 @@ export async function createRecipeAction(
                 cuisineKey: fields.cuisineKey,
                 activeTimeMinutes: fields.activeTimeMinutes,
                 waitTimeMinutes: fields.waitTimeMinutes,
-                source: 'manual',
+                source,
                 sourceIdentifier: null,
             })
             .returning({ id: recipes.id })

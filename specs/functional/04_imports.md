@@ -79,33 +79,51 @@ fill or correct manually. Import does not fail because of enrichment.
 
 ## LLM chat import
 
-### Conversation
+Two phases are envisioned, built incrementally.
 
-The user opens a chat with an LLM and converses freely. Typical openings:
-"something quick with lentils", "a Thai curry for four", "use up the broccoli
-and chicken in my fridge". The LLM asks clarifying questions, proposes ideas,
-and eventually produces a recipe.
+### Phase A — single-shot prompt (built)
 
-When the user is satisfied with a proposed recipe, they invoke a **"save this
-recipe"** action. The LLM is then prompted to emit the recipe as a structured
-response covering the stored recipe fields (title, cuisine key, active time,
-wait time, ingredients normalized per serving, steps). Title, notes, and
-step texts are emitted in **both supported languages**, regardless of which
-language the chat itself happened in. Main ingredients are not emitted; they
-are derived after ingredient-list matching. The app parses the response into
-a populated preview.
+The user describes the recipe they want in a single free-text prompt
+("Schnelles Pad Thai für 4 Personen mit Tofu und Erdnüssen"). The LLM
+returns a structured recipe covering the stored recipe fields (title,
+cuisine key, active and wait time, ingredients at the user's intended
+serving count, steps). Title, notes, and step texts are emitted in
+**both supported languages**, regardless of which language the prompt
+itself was in. Main ingredients are not emitted; they are derived after
+ingredient-list matching.
+
+The LLM operation underlying this is `synthesizeRecipe` in fresh mode
+(see `specs/tech/02_llm.md`).
+
+The call is **cancellable**: while the LLM is thinking the user sees a
+Cancel button next to the spinning Generate; clicking it aborts the
+in-flight request, so token billing stops. Cancellation is not an error
+state.
+
+The structured response populates the standard preview (see *Common*).
+Every field is editable before saving. Ingredient-list matching runs as
+the user reviews; unmatched names auto-link or auto-create per
+`05_ingredients.md`.
+
+### Phase B — multi-turn chat (deferred)
+
+The user opens a chat with the LLM, converses freely (clarifying
+questions, ideas, "make it lighter", "use chicken thighs"), and at the
+end invokes a **"save this recipe"** action that triggers the same
+structured-output emit. This is a UX expansion on top of Phase A and
+shares the same underlying `synthesizeRecipe` operation.
 
 ### Field mapping
 
-Because the chat LLM is instructed to produce structured output covering all
+Because the LLM is instructed to produce structured output covering all
 fields directly, there is no separate enrichment step for chat imports.
-Ingredient-list matching still runs as part of the preview, since the LLM may
-emit free-text ingredient names.
+Ingredient-list matching still runs as part of the preview, since the
+LLM may emit free-text ingredient names.
 
 ### Source
 
-- **Source** ← `llm-chat`. The chat transcript is not retained alongside the
-  saved recipe in v1 — see *Open questions*.
+- **Source** ← `llm-chat`. The chat transcript (Phase B) is not retained
+  alongside the saved recipe in v1 — see *Open questions*.
 
 ## Open questions
 

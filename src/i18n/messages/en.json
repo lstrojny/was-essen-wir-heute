@@ -176,11 +176,35 @@
         "componentCycle": "This component would create a cycle (it already references this recipe).",
         "componentSelfReference": "A recipe can't reference itself as a component.",
         "formServingsInvalid": "Servings must be a positive integer.",
-        "recipeReferencedByComposites": "This recipe is used as a component of: {titles}. Remove those uses first."
+        "recipeReferencedByComposites": "This recipe is used as a component of: {titles}. Remove those uses first.",
+        "llmPromptRequired": "Please enter a description.",
+        "llmSynthesisFailed": "AI call failed: {detail}"
     },
     "recipes": {
         "title": "Recipes",
         "new": "New",
+        "importLlm": "Import with AI",
+        "import": {
+            "llm": {
+                "title": "Import a recipe with AI",
+                "intro": "Describe the recipe you want to save. The AI will structure it; you can edit every field afterwards.",
+                "promptTitle": "Description",
+                "promptPlaceholder": "e.g. \"Quick pad thai for 4 with tofu and peanuts\"",
+                "generate": "Generate",
+                "generating": "AI thinking…",
+                "cancel": "Cancel",
+                "previewTitle": "Preview",
+                "previewIntro": "Review and edit the fields below, then save."
+            }
+        },
+        "refine": {
+            "title": "Refine with AI",
+            "intro": "Describe a change, e.g. \"make this vegetarian\" or \"halve the salt\". Changed fields will be highlighted.",
+            "promptPlaceholder": "e.g. \"make this vegetarian\"",
+            "refine": "Refine",
+            "refining": "AI thinking…",
+            "cancel": "Cancel"
+        },
         "searchPlaceholder": "Search titles…",
         "cuisine": "Cuisine",
         "allCuisines": "All cuisines",
