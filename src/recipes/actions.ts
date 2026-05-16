@@ -355,6 +355,7 @@ export async function createRecipeAction(
         return { error: tErr(fields) }
     }
     const source = readSource(data)
+    const sourceIdentifier = readString(data, 'sourceIdentifier') || null
     const activeLanguage = await resolveLocale()
     let newId: RecipeId | undefined
     db.transaction(() => {
@@ -374,7 +375,7 @@ export async function createRecipeAction(
                 waitTimeMinutes: fields.waitTimeMinutes,
                 isCompleteMeal: fields.isCompleteMeal,
                 source,
-                sourceIdentifier: null,
+                sourceIdentifier,
             })
             .returning({ id: recipes.id })
             .get()

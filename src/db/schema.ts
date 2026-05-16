@@ -274,6 +274,24 @@ export const recipeComponents = sqliteTable(
     ],
 )
 
+export const spoonacularCache = sqliteTable('spoonacular_cache', {
+    cacheKey: text('cache_key').primaryKey(),
+    responseJson: text('response_json').notNull(),
+    fetchedAt: timestampMs('fetched_at')
+        .notNull()
+        .default(sql`(unixepoch() * 1000)`),
+})
+
+export const spoonacularQuota = sqliteTable('spoonacular_quota', {
+    id: integer('id').primaryKey(),
+    quotaUsed: real('quota_used'),
+    quotaLeft: real('quota_left'),
+    quotaRequest: real('quota_request'),
+    updatedAt: timestampMs('updated_at')
+        .notNull()
+        .default(sql`(unixepoch() * 1000)`),
+})
+
 export const recipeRatings = sqliteTable(
     'recipe_ratings',
     {

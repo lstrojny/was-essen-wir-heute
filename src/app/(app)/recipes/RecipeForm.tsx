@@ -107,6 +107,7 @@ export function RecipeForm({
     activeLanguage,
     rolledUp,
     source,
+    sourceIdentifier,
 }: {
     initialValues: RecipeFormInitial
     cuisines: CuisineRow[]
@@ -115,6 +116,7 @@ export function RecipeForm({
     activeLanguage: 'de' | 'en'
     rolledUp: RolledUpRecipe | null
     source?: 'manual' | 'spoonacular' | 'llm-chat'
+    sourceIdentifier?: string
 }) {
     const t = useTranslations()
     const router = useRouter()
@@ -421,6 +423,13 @@ export function RecipeForm({
                 ) : null}
                 {source && source !== 'manual' ? (
                     <input type="hidden" name="source" value={source} />
+                ) : null}
+                {sourceIdentifier ? (
+                    <input
+                        type="hidden"
+                        name="sourceIdentifier"
+                        value={sourceIdentifier}
+                    />
                 ) : null}
 
                 <Paper sx={{ p: 3 }} variant="outlined">

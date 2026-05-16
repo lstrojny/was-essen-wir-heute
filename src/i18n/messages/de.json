@@ -182,13 +182,36 @@
         "formServingsInvalid": "Portionsangabe muss eine positive ganze Zahl sein.",
         "recipeReferencedByComposites": "Dieses Rezept wird als Komponente verwendet von: {titles}. Bitte zuerst dort entfernen.",
         "llmPromptRequired": "Bitte eine Beschreibung eingeben.",
-        "llmSynthesisFailed": "KI-Aufruf fehlgeschlagen: {detail}"
+        "llmSynthesisFailed": "KI-Aufruf fehlgeschlagen: {detail}",
+        "spoonacularQuotaExceeded": "Spoonacular-Kontingent für heute aufgebraucht. Bitte später erneut versuchen.",
+        "spoonacularNotFound": "Rezept bei Spoonacular nicht gefunden.",
+        "spoonacularTransient": "Spoonacular ist gerade nicht erreichbar. Bitte später erneut versuchen.",
+        "spoonacularMalformed": "Antwort von Spoonacular war nicht im erwarteten Format.",
+        "spoonacularNoKey": "SPOONACULAR_API_KEY ist nicht gesetzt — bitte als Umgebungsvariable konfigurieren.",
+        "spoonacularInvalidId": "Bitte eine gültige Spoonacular-ID oder URL eingeben."
     },
     "recipes": {
         "title": "Rezepte",
         "new": "Neu",
         "importLlm": "Mit KI importieren",
+        "importSpoonacular": "Aus Spoonacular importieren",
         "import": {
+            "spoonacular": {
+                "title": "Aus Spoonacular importieren",
+                "intro": "Such ein Rezept bei Spoonacular oder füg eine URL/ID ein. Nach dem Import lassen sich alle Felder bearbeiten.",
+                "searchTitle": "Suche",
+                "searchPlaceholder": "z. B. \"pad thai\"",
+                "search": "Suchen",
+                "searching": "Sucht …",
+                "importThis": "Importieren",
+                "pasteTitle": "URL oder ID einfügen",
+                "pasteIntro": "Wenn du den Spoonacular-Link oder die Recipe-ID hast.",
+                "pastePlaceholder": "https://spoonacular.com/recipes/…",
+                "importPaste": "Importieren",
+                "importing": "Importiert …",
+                "previewTitle": "Vorschau",
+                "previewIntro": "Spoonacular liefert nur Englisch. Deutsch bleibt erstmal leer und kann mit der Verfeinern-Aktion ergänzt werden."
+            },
             "llm": {
                 "title": "Rezept mit KI importieren",
                 "intro": "Beschreibe das Rezept, das du speichern möchtest. Die KI strukturiert es; danach kannst du jedes Feld bearbeiten.",

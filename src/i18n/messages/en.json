@@ -182,13 +182,36 @@
         "formServingsInvalid": "Servings must be a positive integer.",
         "recipeReferencedByComposites": "This recipe is used as a component of: {titles}. Remove those uses first.",
         "llmPromptRequired": "Please enter a description.",
-        "llmSynthesisFailed": "AI call failed: {detail}"
+        "llmSynthesisFailed": "AI call failed: {detail}",
+        "spoonacularQuotaExceeded": "Spoonacular quota exhausted for today. Try again later.",
+        "spoonacularNotFound": "Recipe not found on Spoonacular.",
+        "spoonacularTransient": "Spoonacular is unreachable right now. Try again later.",
+        "spoonacularMalformed": "Spoonacular returned an unexpected response shape.",
+        "spoonacularNoKey": "SPOONACULAR_API_KEY is not set — configure it as an env var.",
+        "spoonacularInvalidId": "Please enter a valid Spoonacular ID or URL."
     },
     "recipes": {
         "title": "Recipes",
         "new": "New",
         "importLlm": "Import with AI",
+        "importSpoonacular": "Import from Spoonacular",
         "import": {
+            "spoonacular": {
+                "title": "Import from Spoonacular",
+                "intro": "Search Spoonacular for a recipe or paste a URL/ID. After import, every field is editable.",
+                "searchTitle": "Search",
+                "searchPlaceholder": "e.g. \"pad thai\"",
+                "search": "Search",
+                "searching": "Searching…",
+                "importThis": "Import",
+                "pasteTitle": "Paste URL or ID",
+                "pasteIntro": "If you have a Spoonacular link or recipe ID.",
+                "pastePlaceholder": "https://spoonacular.com/recipes/…",
+                "importPaste": "Import",
+                "importing": "Importing…",
+                "previewTitle": "Preview",
+                "previewIntro": "Spoonacular returns English only. The German fields stay empty and can be filled in via the Refine action."
+            },
             "llm": {
                 "title": "Import a recipe with AI",
                 "intro": "Describe the recipe you want to save. The AI will structure it; you can edit every field afterwards.",
