@@ -17,7 +17,12 @@ export function AppNavBar({
 }) {
     const t = useTranslations()
     return (
-        <AppBar position="static" color="default" elevation={1}>
+        <AppBar
+            position="sticky"
+            color="default"
+            elevation={1}
+            sx={{ top: 0, zIndex: (theme) => theme.zIndex.appBar }}
+        >
             <Toolbar sx={{ gap: 2 }}>
                 <Typography
                     variant="h6"
