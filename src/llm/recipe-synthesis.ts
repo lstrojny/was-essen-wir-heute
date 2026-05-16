@@ -9,7 +9,9 @@ const TIMEOUT_MS = 60_000
 const ingredientSchema = z.object({
     name: z
         .string()
-        .describe("Free-text ingredient name in the user's active language."),
+        .describe(
+            "Ingredient name in the user's active language ONLY (de or en — see system prompt). Never mix languages within a single recipe.",
+        ),
     amount: z
         .number()
         .positive()
@@ -93,12 +95,18 @@ const recipeSchema = z.object({
         ),
 })
 
-function buildSystemPrompt(cuisineKeys: readonly string[]): string {
+function buildSystemPrompt(
+    cuisineKeys: readonly string[],
+    activeLanguage: 'de' | 'en',
+): string {
+    const languageName =
+        activeLanguage === 'de' ? 'German (de)' : 'English (en)'
     return [
         "You convert a user's free-text recipe request or description into a structured recipe.",
         '',
         'Rules:',
         '- Always emit title, notes, and every step in BOTH German (de) and English (en), regardless of the language the user wrote in. Translate accurately; do not omit either.',
+        `- Ingredient names go ONLY in the user's active language, which is ${languageName}. Never mix English ingredient names into a German recipe or vice versa. If the user wrote in German, every ingredient name must be in German (e.g. "Zwiebeln", "Knoblauchzehen", "Schweinehackfleisch"); if the user wrote in English, every ingredient name must be in English (e.g. "Onions", "Garlic cloves", "Ground pork"). Translate as needed — do not leave English terms in a German recipe even when "everyone knows" them.`,
         `- Choose \`cuisineKey\` from this controlled vocabulary only: ${cuisineKeys.join(', ')}. If nothing fits, use "other".`,
         '- `intendedServings` is the count the amounts are sized for. If the user specified a number ("for 4 people"), use that. Otherwise default to 4.',
         '- Ingredient amounts are at the intendedServings scale (not per single serving). The app divides on save.',
@@ -150,7 +158,7 @@ export async function synthesizeRecipe(
     const { object } = await generateObject({
         model: anthropic(DEFAULT_MODEL),
         schema: recipeSchema,
-        system: buildSystemPrompt(input.cuisineKeys),
+        system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
         prompt: buildPrompt(input),
         abortSignal: combineSignals(input.abortSignal),
     })
