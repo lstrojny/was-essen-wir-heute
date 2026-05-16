@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useFormatter, useTranslations } from 'next-intl'
 import { flattenSections, type RolledUpRecipe } from '@/recipes/rollup'
+import { isKnownUnit } from '@/recipes/units'
 
 function pickTitle(
     r: RolledUpRecipe,
@@ -89,13 +90,23 @@ export function ComposedView({
                                             : format.number(scaled, {
                                                   maximumFractionDigits: 3,
                                               })
+                                    const displayUnit =
+                                        ing.unit && isKnownUnit(ing.unit)
+                                            ? t(
+                                                  `recipes.units.labels.${ing.unit}`,
+                                              )
+                                            : ing.unit
                                     return (
                                         <Typography
                                             key={ing.id}
                                             variant="body2"
                                             component="div"
                                         >
-                                            {[displayAmount, ing.unit, ing.name]
+                                            {[
+                                                displayAmount,
+                                                displayUnit,
+                                                ing.name,
+                                            ]
                                                 .filter(Boolean)
                                                 .join(' ')}
                                         </Typography>

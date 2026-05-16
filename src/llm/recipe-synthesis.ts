@@ -108,7 +108,8 @@ function buildSystemPrompt(cuisineKeys: readonly string[]): string {
         '- DROP sourcing/quality qualifiers: organic, free-range, extra-virgin, premium.',
         '- DROP size qualifiers: large, small, medium.',
         '- KEEP qualifiers that change the substance itself: "ground beef" ≠ "beef" (different cut); "coconut milk" ≠ "coconut" (different product); "soy sauce" (single compound name).',
-        '- Examples: "Fresh parsley, minced" → "Fresh parsley". "1 large yellow onion, finely chopped" → "Yellow onion" (amount 1, unit piece). "Extra-virgin olive oil" → "Olive oil". "Ground cinnamon" → "Cinnamon". "Ground beef" → "Ground beef" (kept — substance differs from "beef"). "Coconut milk" → "Coconut milk" (kept).',
+        '- Use the PLURAL form for countable nouns: "Eier" not "Ei", "Zwiebeln" not "Zwiebel", "Tomaten" not "Tomate", "Knoblauchzehen" not "Knoblauchzehe", "Onions" not "Onion", "Tomatoes" not "Tomato". This matches how cooks naturally write ingredient lists. Mass / uncountable nouns stay in their natural form ("Mehl", "Milch", "Salz", "Flour", "Salt").',
+        '- Examples: "Fresh parsley, minced" → "Parsley". "1 large yellow onion, finely chopped" → "Onions" (amount 1, unit piece). "Extra-virgin olive oil" → "Olive oil". "Ground cinnamon" → "Cinnamon". "Ground beef" → "Ground beef" (kept — substance differs from "beef"). "Coconut milk" → "Coconut milk" (kept). "5 Eier" → name "Eier", amount 5, unit "piece".',
         '- Preparation instructions ("minced", "chopped") belong in the step text, not in the ingredient name.',
     ].join('\n')
 }

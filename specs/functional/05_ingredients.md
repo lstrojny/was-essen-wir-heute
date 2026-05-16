@@ -66,6 +66,13 @@ where relevant, moved into the recipe's step text instead.
 - **Keep** qualifiers that change the substance: `ground beef` ≠ `beef`
   (different cut); `coconut milk` ≠ `coconut` (different product);
   compound names like `soy sauce` are single nouns.
+- Use the **plural form** for countable nouns: the canonical name is
+  `Eier` not `Ei`, `Zwiebeln` not `Zwiebel`, `Tomaten` not `Tomate`,
+  `Knoblauchzehen` not `Knoblauchzehe`, `Onions` not `Onion`,
+  `Tomatoes` not `Tomato`. This matches how cooks write ingredient
+  lists naturally (`5 Eier`, not `5 Stück Ei`). Mass nouns and
+  uncountables stay in their natural form (`Mehl`, `Milch`, `Salz`,
+  `Zucker`, `Flour`, `Salt`).
 
 Examples: "Fresh parsley, minced" → name `Parsley`; "1 large yellow
 onion, finely chopped" → name `Onion`, amount `1`, unit `piece`;
