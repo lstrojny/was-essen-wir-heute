@@ -6,7 +6,9 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { parseIngredientId } from '@/db/ids'
 import { getIngredient } from '@/ingredients/queries'
+import { findRecipesUsingIngredient, listCuisines } from '@/recipes/queries'
 import { IngredientForm, type IngredientFormInitial } from '../IngredientForm'
+import { UsedInRecipes } from './UsedInRecipes'
 
 export default async function EditIngredientPage({
     params,
@@ -43,11 +45,21 @@ export default async function EditIngredientPage({
             gramsPerUnit: String(cu.gramsPerUnit),
         })),
     }
+    const usedIn = findRecipesUsingIngredient(ingredient.id)
+    const cuisines = listCuisines()
+    const cuisineLabels = Object.fromEntries(
+        cuisines.map((c) => [c.key, locale === 'de' ? c.labelDe : c.labelEn]),
+    )
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
                 <Typography variant="h4">{title}</Typography>
                 <IngredientForm initialValues={initialValues} />
+                <UsedInRecipes
+                    rows={usedIn}
+                    activeLanguage={locale === 'de' ? 'de' : 'en'}
+                    cuisineLabels={cuisineLabels}
+                />
             </Stack>
         </Container>
     )

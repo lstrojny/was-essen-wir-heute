@@ -93,6 +93,10 @@
     "ingredients": {
         "title": "Ingredients",
         "new": "New",
+        "usedIn": {
+            "title": "{count, plural, =0 {Not used in any recipe} one {Used in 1 recipe} other {Used in # recipes}}",
+            "empty": "This ingredient is not currently used in any recipe."
+        },
         "searchPlaceholder": "Search canonical names or aliases…",
         "emptyAll": "No ingredients yet.",
         "emptySearch": "No ingredients match that search.",

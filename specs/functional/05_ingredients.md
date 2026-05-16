@@ -52,6 +52,18 @@ Unlinked ingredients display correctly but are ignored for main-ingredient
 derivation and for any feature that depends on the catalog (future shopping
 list, ingredient-based search, etc.).
 
+### Reverse lookup: recipes using an ingredient
+
+The ingredient management surface shows, for each entry, the list of
+recipes that link to it (via `recipe_ingredients.central_ingredient_id`).
+The list shows the recipe's display title in the active language
+(with the usual fallback marker) and cuisine, and links to the recipe.
+Only **direct** uses are listed — recipes that include this ingredient
+transitively through a composite component are not (yet) walked.
+
+The reverse lookup is a useful "what can I cook with X?" entry point
+that complements the (still-deferred) full ingredient-based search.
+
 ### Naming convention
 
 The ingredient *name* is the bare canonical noun. Qualifiers describing

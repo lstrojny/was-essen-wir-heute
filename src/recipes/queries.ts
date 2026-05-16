@@ -264,6 +264,33 @@ export function getRolledUpRecipe(id: RecipeId): RolledUpRecipe | null {
     }
 }
 
+export type RecipeUsingIngredient = {
+    id: RecipeId
+    titleDe: string | null
+    titleEn: string | null
+    cuisineKey: CuisineKey
+}
+
+export function findRecipesUsingIngredient(
+    ingredientId: IngredientId,
+): RecipeUsingIngredient[] {
+    return db
+        .selectDistinct({
+            id: recipes.id,
+            titleDe: recipes.titleDe,
+            titleEn: recipes.titleEn,
+            cuisineKey: recipes.cuisineKey,
+        })
+        .from(recipes)
+        .innerJoin(
+            recipeIngredients,
+            eq(recipeIngredients.recipeId, recipes.id),
+        )
+        .where(eq(recipeIngredients.centralIngredientId, ingredientId))
+        .orderBy(asc(recipes.titleEn), asc(recipes.titleDe))
+        .all()
+}
+
 export function findCentralIngredientByName(name: string): IngredientId | null {
     const lowered = name.trim().toLowerCase()
     if (!lowered) return null

@@ -93,6 +93,10 @@
     "ingredients": {
         "title": "Zutaten",
         "new": "Neu",
+        "usedIn": {
+            "title": "{count, plural, =0 {Nicht in Rezepten verwendet} one {Verwendet in 1 Rezept} other {Verwendet in # Rezepten}}",
+            "empty": "Diese Zutat wird aktuell in keinem Rezept verwendet."
+        },
         "searchPlaceholder": "Namen oder Aliasse durchsuchen …",
         "emptyAll": "Noch keine Zutaten.",
         "emptySearch": "Keine Zutaten passen zu dieser Suche.",
