@@ -16,15 +16,16 @@ import { RecipeListFilters } from './RecipeListFilters'
 export default async function RecipesPage({
     searchParams,
 }: {
-    searchParams: Promise<{ q?: string; cuisine?: string }>
+    searchParams: Promise<{ q?: string; cuisine?: string; complete?: string }>
 }) {
     const session = await requireSetupOrSession()
     const t = await getTranslations()
     const params = await searchParams
     const q = (params.q ?? '').trim()
     const cuisineKey = params.cuisine ? parseCuisineKey(params.cuisine) : null
+    const completeOnly = params.complete === '1'
     const cuisines = listCuisines()
-    const rows = listRecipes(q, cuisineKey)
+    const rows = listRecipes(q, cuisineKey, completeOnly)
     const cuisineLabels = Object.fromEntries(
         cuisines.map((c) => [
             c.key,
@@ -65,6 +66,7 @@ export default async function RecipesPage({
                 <RecipeListFilters
                     defaultSearch={q}
                     defaultCuisineKey={cuisineKey}
+                    defaultCompleteOnly={completeOnly}
                     cuisines={cuisines}
                     activeLanguage={session.user.language}
                 />

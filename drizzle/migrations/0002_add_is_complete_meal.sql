@@ -1,0 +1,1 @@
+ALTER TABLE `recipes` ADD `is_complete_meal` integer DEFAULT false NOT NULL;

@@ -212,6 +212,8 @@
         "searchPlaceholder": "Titel durchsuchen …",
         "cuisine": "Küche",
         "allCuisines": "Alle Küchen",
+        "onlyCompleteMeals": "Nur vollständige Mahlzeiten",
+        "completeMeal": "Vollständige Mahlzeit",
         "emptyAll": "Noch keine Rezepte.",
         "emptySearch": "Keine Rezepte passen zu dieser Suche.",
         "unnamed": "(ohne Titel)",
@@ -266,7 +268,8 @@
                 "cuisine": "Küche",
                 "activeTime": "Aktive Zeit (Minuten)",
                 "waitTime": "Wartezeit (Minuten)",
-                "waitTimeHint": "z. B. Marinieren, Ruhen lassen, über Nacht ziehen"
+                "waitTimeHint": "z. B. Marinieren, Ruhen lassen, über Nacht ziehen",
+                "isCompleteMeal": "Vollständige Mahlzeit (steht für sich allein)"
             },
             "notes": {
                 "title": "Notizen",

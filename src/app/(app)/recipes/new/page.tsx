@@ -20,6 +20,7 @@ const EMPTY: RecipeFormInitial = {
     cuisineKey: '',
     activeTimeMinutes: '',
     waitTimeMinutes: '',
+    isCompleteMeal: false,
     formServings: DEFAULT_FORM_SERVINGS,
     ingredients: [],
     steps: [],

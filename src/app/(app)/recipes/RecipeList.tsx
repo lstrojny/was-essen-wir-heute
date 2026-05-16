@@ -60,6 +60,13 @@ export function RecipeList({
                                     })}
                                 </Typography>
                             </Box>
+                            {row.isCompleteMeal ? (
+                                <Chip
+                                    size="small"
+                                    label={t('recipes.completeMeal')}
+                                    color="success"
+                                />
+                            ) : null}
                             {untranslated ? (
                                 <Chip
                                     size="small"

@@ -6,6 +6,8 @@ import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
@@ -81,6 +83,7 @@ export type RecipeFormInitial = {
     cuisineKey: CuisineKey | ''
     activeTimeMinutes: string
     waitTimeMinutes: string
+    isCompleteMeal: boolean
     formServings: number
     ingredients: RecipeFormIngredient[]
     steps: RecipeFormStep[]
@@ -128,6 +131,9 @@ export function RecipeForm({
     )
     const [waitTimeMinutes, setWaitTimeMinutes] = useState(
         initialValues.waitTimeMinutes,
+    )
+    const [isCompleteMeal, setIsCompleteMeal] = useState(
+        initialValues.isCompleteMeal,
     )
     const [formServings, setFormServingsState] = useState(
         initialValues.formServings,
@@ -181,6 +187,7 @@ export function RecipeForm({
                 | '',
             activeTimeMinutes,
             waitTimeMinutes,
+            isCompleteMeal,
             formServings,
             ingredients,
             steps,
@@ -194,6 +201,7 @@ export function RecipeForm({
         setCuisineKey(next.cuisineKey)
         setActiveTimeMinutes(next.activeTimeMinutes)
         setWaitTimeMinutes(next.waitTimeMinutes)
+        setIsCompleteMeal(next.isCompleteMeal)
         setFormServingsState(next.formServings)
         setAppliedFormServings(next.formServings)
         setIngredients(next.ingredients)
@@ -332,6 +340,7 @@ export function RecipeForm({
             cuisineKey,
             activeTimeMinutes,
             waitTimeMinutes,
+            isCompleteMeal,
             formServings,
             ingredients,
             steps,
@@ -523,6 +532,20 @@ export function RecipeForm({
                                 sx={{ flex: 1 }}
                             />
                         </Box>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    name="isCompleteMeal"
+                                    checked={isCompleteMeal}
+                                    onChange={(e) =>
+                                        setIsCompleteMeal(e.target.checked)
+                                    }
+                                />
+                            }
+                            label={t(
+                                'recipes.form.classification.isCompleteMeal',
+                            )}
+                        />
                     </Stack>
                 </Paper>
 

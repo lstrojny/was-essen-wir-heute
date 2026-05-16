@@ -57,8 +57,9 @@ exact column names and types are settled at implementation.
   `04_auth.md`).
 - **recipes** — one row per recipe. Holds language-independent fields:
   active time, wait time, source kind + source identifier, cuisine key
-  (FK to `cuisines`). Per-language text columns live on this row — see
-  *Per-language storage*.
+  (FK to `cuisines`), `is_complete_meal` (INTEGER 0/1, default `0`).
+  Per-language text columns live on this row — see *Per-language
+  storage*.
 - **recipe_steps** — ordered list per recipe. The row carries the position
   and **per-language text columns** (`text_de`, `text_en`).
 - **recipe_ingredients** — ordered list per recipe. Each row holds amount

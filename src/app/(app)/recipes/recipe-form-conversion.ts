@@ -15,6 +15,7 @@ export function synthesizedToFormInitial(
         activeTimeMinutes: String(recipe.activeTimeMinutes),
         waitTimeMinutes:
             recipe.waitTimeMinutes === 0 ? '' : String(recipe.waitTimeMinutes),
+        isCompleteMeal: recipe.isCompleteMeal,
         formServings: recipe.intendedServings,
         ingredients: recipe.ingredients.map((ing) => ({
             amount: ing.amount === null ? '' : String(ing.amount),
@@ -38,6 +39,7 @@ export type FormFieldsSnapshot = {
     cuisineKey: string
     activeTimeMinutes: string
     waitTimeMinutes: string
+    isCompleteMeal: boolean
     formServings: number
     ingredients: Array<{ amount: string; unit: string; name: string }>
     steps: Array<{ textDe: string; textEn: string }>
@@ -54,6 +56,7 @@ export function formSnapshotToSynthesized(
         cuisineKey: snapshot.cuisineKey || 'other',
         activeTimeMinutes: Number(snapshot.activeTimeMinutes) || 0,
         waitTimeMinutes: Number(snapshot.waitTimeMinutes) || 0,
+        isCompleteMeal: snapshot.isCompleteMeal,
         intendedServings: snapshot.formServings,
         ingredients: snapshot.ingredients.map((ing) => ({
             name: ing.name,

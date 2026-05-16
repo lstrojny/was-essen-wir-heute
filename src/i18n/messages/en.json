@@ -212,6 +212,8 @@
         "searchPlaceholder": "Search titles…",
         "cuisine": "Cuisine",
         "allCuisines": "All cuisines",
+        "onlyCompleteMeals": "Complete meals only",
+        "completeMeal": "Complete meal",
         "emptyAll": "No recipes yet.",
         "emptySearch": "No recipes match that search.",
         "unnamed": "(untitled)",

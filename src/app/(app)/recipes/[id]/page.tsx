@@ -1,3 +1,4 @@
+import Chip from '@mui/material/Chip'
 import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
@@ -51,6 +52,7 @@ export default async function EditRecipePage({
         activeTimeMinutes: String(recipe.activeTimeMinutes),
         waitTimeMinutes:
             recipe.waitTimeMinutes === 0 ? '' : String(recipe.waitTimeMinutes),
+        isCompleteMeal: recipe.isCompleteMeal,
         formServings: DEFAULT_FORM_SERVINGS,
         ingredients: recipe.ingredients.map((ing) => ({
             amount:
@@ -79,7 +81,20 @@ export default async function EditRecipePage({
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
-                <Typography variant="h4">{title}</Typography>
+                <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+                >
+                    <Typography variant="h4">{title}</Typography>
+                    {recipe.isCompleteMeal ? (
+                        <Chip
+                            label={t('recipes.completeMeal')}
+                            color="success"
+                            size="small"
+                        />
+                    ) : null}
+                </Stack>
                 <RecipeForm
                     initialValues={initialValues}
                     cuisines={cuisines}

@@ -167,6 +167,7 @@ type WriteFields = {
     cuisineKey: CuisineKey
     activeTimeMinutes: number
     waitTimeMinutes: number
+    isCompleteMeal: boolean
     ingredients: ParsedIngredient[]
     steps: ParsedStep[]
     components: RecipeId[]
@@ -221,6 +222,7 @@ function readFormFields(data: FormData): WriteFields | FieldsErrorKey {
         cuisineKey,
         activeTimeMinutes: activeTime,
         waitTimeMinutes: waitTime,
+        isCompleteMeal: data.get('isCompleteMeal') === 'on',
         ingredients: normalizedIngredients,
         steps,
         components: parseComponents(data),
@@ -370,6 +372,7 @@ export async function createRecipeAction(
                 cuisineKey: fields.cuisineKey,
                 activeTimeMinutes: fields.activeTimeMinutes,
                 waitTimeMinutes: fields.waitTimeMinutes,
+                isCompleteMeal: fields.isCompleteMeal,
                 source,
                 sourceIdentifier: null,
             })
@@ -431,6 +434,7 @@ export async function updateRecipeAction(
                 cuisineKey: fields.cuisineKey,
                 activeTimeMinutes: fields.activeTimeMinutes,
                 waitTimeMinutes: fields.waitTimeMinutes,
+                isCompleteMeal: fields.isCompleteMeal,
                 updatedAt: new Date(),
             })
             .where(eq(recipes.id, id))
@@ -476,6 +480,7 @@ export async function copyRecipeAction(data: FormData): Promise<void> {
                 cuisineKey: source.cuisineKey,
                 activeTimeMinutes: source.activeTimeMinutes,
                 waitTimeMinutes: source.waitTimeMinutes,
+                isCompleteMeal: source.isCompleteMeal,
                 source: 'manual',
                 sourceIdentifier: null,
             })

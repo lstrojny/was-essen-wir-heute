@@ -44,11 +44,13 @@ export type RecipeListRow = {
     cuisineKey: CuisineKey
     activeTimeMinutes: number
     waitTimeMinutes: number
+    isCompleteMeal: boolean
 }
 
 export function listRecipes(
     search: string,
     cuisineKey: CuisineKey | null,
+    completeOnly: boolean,
 ): RecipeListRow[] {
     const trimmed = search.trim()
     const pattern = `%${trimmed.toLowerCase()}%`
@@ -60,6 +62,7 @@ export function listRecipes(
             cuisineKey: recipes.cuisineKey,
             activeTimeMinutes: recipes.activeTimeMinutes,
             waitTimeMinutes: recipes.waitTimeMinutes,
+            isCompleteMeal: recipes.isCompleteMeal,
         })
         .from(recipes)
     const conditions = []
@@ -73,6 +76,9 @@ export function listRecipes(
     }
     if (cuisineKey) {
         conditions.push(eq(recipes.cuisineKey, cuisineKey))
+    }
+    if (completeOnly) {
+        conditions.push(eq(recipes.isCompleteMeal, true))
     }
     const query =
         conditions.length === 0
@@ -118,6 +124,7 @@ export type RecipeDetail = {
     cuisineKey: CuisineKey
     activeTimeMinutes: number
     waitTimeMinutes: number
+    isCompleteMeal: boolean
     source: 'manual' | 'spoonacular' | 'llm-chat'
     sourceIdentifier: string | null
     ingredients: RecipeIngredientRow[]
@@ -176,6 +183,7 @@ export function getRecipe(id: RecipeId): RecipeDetail | null {
         cuisineKey: row.cuisineKey,
         activeTimeMinutes: row.activeTimeMinutes,
         waitTimeMinutes: row.waitTimeMinutes,
+        isCompleteMeal: row.isCompleteMeal,
         source: row.source,
         sourceIdentifier: row.sourceIdentifier,
         ingredients,

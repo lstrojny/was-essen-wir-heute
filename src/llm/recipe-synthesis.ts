@@ -69,6 +69,11 @@ const recipeSchema = z.object({
         .describe(
             'Passive time (marinating, resting, rising, chilling). 0 if none.',
         ),
+    isCompleteMeal: z
+        .boolean()
+        .describe(
+            'True when the recipe stands as a full meal on its own (protein + starch + vegetables, or otherwise nutritionally complete). False for sides, sauces, dressings, mixes, individual components like just "mashed potatoes" or "marinade", or anything meant to be served alongside something else.',
+        ),
     intendedServings: z
         .number()
         .int()

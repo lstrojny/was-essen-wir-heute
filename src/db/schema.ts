@@ -168,6 +168,9 @@ export const recipes = sqliteTable(
         cuisineKey: text('cuisine_key').notNull().$type<CuisineKey>(),
         activeTimeMinutes: integer('active_time_minutes').notNull(),
         waitTimeMinutes: integer('wait_time_minutes').notNull().default(0),
+        isCompleteMeal: integer('is_complete_meal', { mode: 'boolean' })
+            .notNull()
+            .default(false),
         source: text('source', {
             enum: ['manual', 'spoonacular', 'llm-chat'],
         }).notNull(),

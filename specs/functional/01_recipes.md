@@ -36,6 +36,20 @@ Every recipe has:
   See `04_imports.md`.
 - **Notes** — optional free-text field for the cook (substitutions, warnings,
   "double the garlic"). *(Per language — see `06_i18n.md`.)*
+- **Complete-meal flag** — boolean that marks whether the recipe stands as
+  a full meal on its own. A stew with protein + starch + vegetables is
+  complete; a side of mashed potatoes, a sauce, or a dressing is not.
+  Default is **false** (most entries in a growing catalog are
+  components and sides; the cook explicitly flags the ones that work
+  as standalone meals). The flag drives:
+  - Visual marking: a green "Vollständige Mahlzeit" / "Complete meal"
+    chip is shown on the recipe list and detail when the flag is true;
+    nothing is shown when it's false.
+  - List filter: the `/recipes` list has a "Nur vollständige Mahlzeiten"
+    toggle that filters the list to true-only.
+  - Future meal planning (out of scope here): the planner will offer
+    complete meals as the main slot, with optional sides picked from
+    non-complete recipes.
 
 A recipe has **no fixed serving size**. See *Serving size* below.
 
