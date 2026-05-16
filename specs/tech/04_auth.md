@@ -44,10 +44,13 @@ the need for email-based verification in v1.
 
 ## Password hashing
 
-- **argon2id** with parameters appropriate for an interactive server
-  (memory cost, time cost, parallelism pinned at implementation time).
-- The hash includes its parameters so they can be tuned later without
-  invalidating existing passwords.
+- **argon2id** via the **`@node-rs/argon2`** library (Rust-based,
+  prebuilt binaries — no node-gyp toolchain needed in the Docker build).
+- Parameters: **memory cost 19 MiB, time cost 2, parallelism 1**
+  (OWASP minimum for interactive authentication). Pinned in a single
+  module so they can be retuned in one place.
+- The hash is stored in PHC string format (which encodes the parameters
+  used), so existing passwords keep verifying after a parameter change.
 - Plain passwords are never logged or persisted.
 
 ## Minimum password policy
@@ -64,19 +67,24 @@ Sessions are server-side and stored in SQLite.
 
 A `sessions` table holds:
 
-- `id` — the **hash** of the session token, not the token itself. Token
-  is generated as 256 bits of randomness, base64-url-encoded.
+- `id` — the **SHA-256 hash** of the session token (hex-encoded), not the
+  token itself. Token is generated as 256 bits of randomness,
+  base64url-encoded.
 - `user_id` — FK to `users`.
 - `expires_at` — absolute expiry timestamp.
-- `last_used_at` — touched on every authenticated request.
-- `created_at`.
+- `last_used_at` — touched on every authenticated request (subject to
+  the throttling rule below).
+- `created_at` — absolute creation timestamp; also serves as the anchor
+  for the 90-day hard cap.
 - `user_agent` — captured for a future "active sessions" UI.
 
 Behaviour:
 
 - The session token is delivered to the browser in an **HTTP-only,
-  Secure, SameSite=Lax** cookie. The cookie name is fixed; the value is
-  the unhashed token.
+  Secure, SameSite=Lax** cookie named **`wewh_session`**. The cookie
+  value is the unhashed token. The `Secure` attribute is set in
+  production; in local development over plain HTTP it is omitted so
+  the cookie is still accepted.
 - Default lifetime: **30 days**, **sliding**. Each authenticated request
   bumps `last_used_at` and extends `expires_at` if more than a day has
   passed since the last extension (avoiding a write on every request).

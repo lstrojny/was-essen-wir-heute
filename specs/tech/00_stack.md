@@ -34,6 +34,8 @@ authenticate separately.
 - **Biome 2.x** for linting and formatting; a single config covers both
   TypeScript/TSX and Markdown (Markdown support is a Biome 2 feature). The
   Biome version is pinned via `package.json`.
+- Formatter conventions: **4-space indentation**, **no trailing
+  semicolons**, and **single quotes** in TypeScript/TSX.
 - **TypeScript strict mode** is on (`strict: true` in `tsconfig.json`).
 - A `typecheck` script runs `tsc --noEmit`. CI (when added) runs
   `typecheck`, `lint`, and tests.

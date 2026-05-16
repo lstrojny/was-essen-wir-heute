@@ -31,9 +31,11 @@ that and shapes the relational model implied by the functional specs.
 - Table and column names are `snake_case`.
 - Primary keys are integer surrogate keys named `id`.
 - Foreign-key columns are `<referenced_table_singular>_id`.
-- Every table has `created_at` and `updated_at` timestamps (UTC, stored as
-  ISO-8601 strings or integers — pin in implementation, consistent across
-  tables).
+- Every table has `created_at` and `updated_at` timestamps. Timestamps
+  are stored as **integer Unix epoch milliseconds** (`INTEGER`) in UTC.
+  Drizzle's `integer({ mode: "timestamp_ms" })` maps these to JS `Date`.
+  The same encoding is used for every timestamp column across all tables
+  (`expires_at`, `last_used_at`, etc.).
 
 ## Schema (logical view)
 
@@ -118,8 +120,6 @@ meal-plan entry (future) is rejected.
 
 ## Open questions
 
-- **Timestamps**: ISO-8601 strings vs. unix epoch integers in SQLite.
-  Pick one at implementation time and stay consistent.
 - **JSON columns** for any field. None used in v1 — every list-valued
   attribute uses a child table. Revisit only if a list-valued field
   proves not to need indexing or querying.
