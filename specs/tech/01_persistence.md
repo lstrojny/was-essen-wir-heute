@@ -94,7 +94,8 @@ exact column names and types are settled at implementation.
   `label_de`, `label_en`. **Seeded** in the recipes migration with a
   v1 starter set (`italian`, `thai`, `german`, `french`, `mexican`,
   `indian`, `american`, `mediterranean`, `japanese`, `chinese`, `greek`,
-  `spanish`, `middle-eastern`, `vietnamese`, `other`). New cuisines are
+  `spanish`, `middle-eastern`, `vietnamese`, `other`). Additional
+  cuisines added in follow-up migrations: `korean`. New cuisines are
   added by appending to a follow-up migration; no in-app cuisine-
   management surface in v1.
 - **sessions** — server-side sessions for authenticated users. See
