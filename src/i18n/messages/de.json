@@ -85,7 +85,7 @@
         "user": "Benutzer"
     },
     "ingredientRoles": {
-        "starch": "Stärke",
+        "starch": "Kohlenhydrat",
         "vegetable": "Gemüse",
         "protein": "Protein",
         "none": "Keine (Gewürz, Milchprodukt, …)"
