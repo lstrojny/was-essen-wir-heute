@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { and, eq, gt, ne } from 'drizzle-orm'
 import { cookies } from 'next/headers'
 import { db } from '@/db'
+import { asSessionId, type SessionId, type UserId } from '@/db/ids'
 import { sessions, users } from '@/db/schema'
 
 export const SESSION_COOKIE_NAME = 'wewh_session'
@@ -14,12 +15,12 @@ function generateToken(): string {
     return randomBytes(32).toString('base64url')
 }
 
-function hashToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex')
+function hashToken(token: string): SessionId {
+    return asSessionId(createHash('sha256').update(token).digest('hex'))
 }
 
 export type SessionUser = {
-    id: number
+    id: UserId
     email: string
     displayName: string
     role: 'admin' | 'user'
@@ -27,12 +28,12 @@ export type SessionUser = {
 }
 
 export type AuthenticatedSession = {
-    sessionId: string
+    sessionId: SessionId
     user: SessionUser
 }
 
 export async function createSession(
-    userId: number,
+    userId: UserId,
     userAgent: string | null,
 ): Promise<string> {
     const token = generateToken()
@@ -131,14 +132,14 @@ export async function destroySession(): Promise<void> {
 }
 
 export function destroyAllSessionsExcept(
-    userId: number,
-    keepSessionId: string,
+    userId: UserId,
+    keepSessionId: SessionId,
 ): void {
     db.delete(sessions)
         .where(and(eq(sessions.userId, userId), ne(sessions.id, keepSessionId)))
         .run()
 }
 
-export function destroyAllSessionsForUser(userId: number): void {
+export function destroyAllSessionsForUser(userId: UserId): void {
     db.delete(sessions).where(eq(sessions.userId, userId)).run()
 }

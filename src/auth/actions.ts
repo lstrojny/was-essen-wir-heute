@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { db } from '@/db'
+import { parseUserId } from '@/db/ids'
 import { sessions, users } from '@/db/schema'
 import { hasAnyUser, requireAdmin, requireSetupOrSession } from './guards'
 import { hashPassword, verifyPassword, WeakPasswordError } from './password'
@@ -236,9 +237,9 @@ export async function adminResetPasswordAction(
     data: FormData,
 ): Promise<FormState> {
     await requireAdmin()
-    const userId = Number(readString(data, 'userId'))
+    const userId = parseUserId(readString(data, 'userId'))
     const tempPassword = readString(data, 'tempPassword')
-    if (!Number.isInteger(userId) || userId <= 0) {
+    if (!userId) {
         return { error: 'Invalid user.' }
     }
     let passwordHash: string
@@ -263,9 +264,9 @@ export async function adminChangeRoleAction(
     data: FormData,
 ): Promise<FormState> {
     const admin = await requireAdmin()
-    const userId = Number(readString(data, 'userId'))
+    const userId = parseUserId(readString(data, 'userId'))
     const role = readRole(data, 'role')
-    if (!Number.isInteger(userId) || userId <= 0 || !role) {
+    if (!userId || !role) {
         return { error: 'Invalid input.' }
     }
     if (userId === admin.id && role !== 'admin') {
@@ -283,8 +284,8 @@ export async function adminDeleteUserAction(
     data: FormData,
 ): Promise<FormState> {
     const admin = await requireAdmin()
-    const userId = Number(readString(data, 'userId'))
-    if (!Number.isInteger(userId) || userId <= 0) {
+    const userId = parseUserId(readString(data, 'userId'))
+    if (!userId) {
         return { error: 'Invalid user.' }
     }
     if (userId === admin.id) {

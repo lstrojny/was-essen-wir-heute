@@ -1,9 +1,183 @@
 {
     "version": "6",
     "dialect": "sqlite",
-    "id": "969bd743-0cfa-492d-967f-9d07f216d839",
+    "id": "c9165f42-bac5-45ad-93ef-3c57e7d8975f",
     "prevId": "00000000-0000-0000-0000-000000000000",
     "tables": {
+        "central_ingredient_aliases": {
+            "name": "central_ingredient_aliases",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "central_ingredient_id": {
+                    "name": "central_ingredient_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "alias": {
+                    "name": "alias",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                }
+            },
+            "indexes": {
+                "central_ingredient_aliases_entry_alias_unique": {
+                    "name": "central_ingredient_aliases_entry_alias_unique",
+                    "columns": ["central_ingredient_id", "lower(\"alias\")"],
+                    "isUnique": true
+                },
+                "central_ingredient_aliases_alias_idx": {
+                    "name": "central_ingredient_aliases_alias_idx",
+                    "columns": ["lower(\"alias\")"],
+                    "isUnique": false
+                }
+            },
+            "foreignKeys": {
+                "central_ingredient_aliases_central_ingredient_id_central_ingredients_id_fk": {
+                    "name": "central_ingredient_aliases_central_ingredient_id_central_ingredients_id_fk",
+                    "tableFrom": "central_ingredient_aliases",
+                    "tableTo": "central_ingredients",
+                    "columnsFrom": ["central_ingredient_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "central_ingredient_count_units": {
+            "name": "central_ingredient_count_units",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "central_ingredient_id": {
+                    "name": "central_ingredient_id",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "unit": {
+                    "name": "unit",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "grams_per_unit": {
+                    "name": "grams_per_unit",
+                    "type": "real",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                }
+            },
+            "indexes": {
+                "central_ingredient_count_units_entry_unit_unique": {
+                    "name": "central_ingredient_count_units_entry_unit_unique",
+                    "columns": ["central_ingredient_id", "lower(\"unit\")"],
+                    "isUnique": true
+                }
+            },
+            "foreignKeys": {
+                "central_ingredient_count_units_central_ingredient_id_central_ingredients_id_fk": {
+                    "name": "central_ingredient_count_units_central_ingredient_id_central_ingredients_id_fk",
+                    "tableFrom": "central_ingredient_count_units",
+                    "tableTo": "central_ingredients",
+                    "columnsFrom": ["central_ingredient_id"],
+                    "columnsTo": ["id"],
+                    "onDelete": "cascade",
+                    "onUpdate": "no action"
+                }
+            },
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
+        "central_ingredients": {
+            "name": "central_ingredients",
+            "columns": {
+                "id": {
+                    "name": "id",
+                    "type": "text",
+                    "primaryKey": true,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "canonical_de": {
+                    "name": "canonical_de",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "canonical_en": {
+                    "name": "canonical_en",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "role": {
+                    "name": "role",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false
+                },
+                "density": {
+                    "name": "density",
+                    "type": "real",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "notes": {
+                    "name": "notes",
+                    "type": "text",
+                    "primaryKey": false,
+                    "notNull": false,
+                    "autoincrement": false
+                },
+                "created_at": {
+                    "name": "created_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(unixepoch() * 1000)"
+                },
+                "updated_at": {
+                    "name": "updated_at",
+                    "type": "integer",
+                    "primaryKey": false,
+                    "notNull": true,
+                    "autoincrement": false,
+                    "default": "(unixepoch() * 1000)"
+                }
+            },
+            "indexes": {},
+            "foreignKeys": {},
+            "compositePrimaryKeys": {},
+            "uniqueConstraints": {},
+            "checkConstraints": {}
+        },
         "sessions": {
             "name": "sessions",
             "columns": {
@@ -16,7 +190,7 @@
                 },
                 "user_id": {
                     "name": "user_id",
-                    "type": "integer",
+                    "type": "text",
                     "primaryKey": false,
                     "notNull": true,
                     "autoincrement": false
@@ -78,10 +252,10 @@
             "columns": {
                 "id": {
                     "name": "id",
-                    "type": "integer",
+                    "type": "text",
                     "primaryKey": true,
                     "notNull": true,
-                    "autoincrement": true
+                    "autoincrement": false
                 },
                 "email": {
                     "name": "email",
@@ -156,6 +330,28 @@
         "columns": {}
     },
     "internal": {
-        "indexes": {}
+        "indexes": {
+            "central_ingredient_aliases_entry_alias_unique": {
+                "columns": {
+                    "lower(\"alias\")": {
+                        "isExpression": true
+                    }
+                }
+            },
+            "central_ingredient_aliases_alias_idx": {
+                "columns": {
+                    "lower(\"alias\")": {
+                        "isExpression": true
+                    }
+                }
+            },
+            "central_ingredient_count_units_entry_unit_unique": {
+                "columns": {
+                    "lower(\"unit\")": {
+                        "isExpression": true
+                    }
+                }
+            }
+        }
     }
 }

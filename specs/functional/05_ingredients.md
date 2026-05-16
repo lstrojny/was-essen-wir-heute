@@ -64,7 +64,9 @@ On import:
 
 The list grows organically:
 
-- The user can add an entry directly from a "manage ingredients" surface.
+- The user can add an entry directly from a **"manage ingredients" surface**.
+  The surface is available to any authenticated user; managing the catalog
+  is not admin-only.
 - When the user types a free-text ingredient that has no match, the UI offers
   "add '*spring onion*' to the central list". One click creates the entry,
   asks for role + (optional) conversion data, and links the row.

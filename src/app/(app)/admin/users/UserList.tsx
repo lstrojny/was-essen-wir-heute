@@ -16,9 +16,10 @@ import {
     adminDeleteUserAction,
     adminResetPasswordAction,
 } from '@/auth/actions'
+import type { UserId } from '@/db/ids'
 
 type Row = {
-    id: number
+    id: UserId
     email: string
     displayName: string
     role: 'admin' | 'user'
@@ -131,7 +132,7 @@ export function UserList({
     currentUserId,
 }: {
     rows: Row[]
-    currentUserId: number
+    currentUserId: UserId
 }) {
     if (rows.length === 0) {
         return <Alert severity="info">No users yet.</Alert>

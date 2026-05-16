@@ -29,6 +29,9 @@ export function AppNavBar({
                 >
                     Was essen wir heute
                 </Typography>
+                <Button component={Link} href="/ingredients" size="small">
+                    Ingredients
+                </Button>
                 <Typography variant="body2" color="text.secondary">
                     {displayName}
                 </Typography>

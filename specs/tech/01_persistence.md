@@ -29,8 +29,19 @@ that and shapes the relational model implied by the functional specs.
 ## Naming and conventions
 
 - Table and column names are `snake_case`.
-- Primary keys are integer surrogate keys named `id`.
-- Foreign-key columns are `<referenced_table_singular>_id`.
+- Primary keys are **UUIDv7** strings stored as `TEXT`, named `id`, and
+  generated **application-side** via the `uuid` package. UUIDv7 is chosen
+  for its time-prefixed layout (better B-tree index locality on inserts
+  than v4). One exception: `sessions.id` holds the SHA-256 hash of the
+  session token, not a UUID — see `04_auth.md`.
+- Foreign-key columns are `<referenced_table_singular>_id` and inherit
+  the `TEXT` type of the referenced PK.
+- At the TypeScript layer, each table's PK has a **branded string type**
+  (`UserId`, `IngredientId`, `SessionId`, etc.) wired through Drizzle's
+  `$type<T>()`. The brands are nominal — a `UserId` is not interchangeable
+  with an `IngredientId` even though both are strings at runtime. IDs
+  arriving from FormData or URL params are validated and re-branded at
+  the boundary via per-type `parse*` helpers in `src/db/ids.ts`.
 - Every table has `created_at` and `updated_at` timestamps. Timestamps
   are stored as **integer Unix epoch milliseconds** (`INTEGER`) in UTC.
   Drizzle's `integer({ mode: "timestamp_ms" })` maps these to JS `Date`.
@@ -65,10 +76,15 @@ exact column names and types are settled at implementation.
   on this row as separate columns (see below).
 - **central_ingredient_aliases** — many rows per central entry, holding a
   single alias string. Aliases are matching-only and language-agnostic
-  (no language column).
+  (no language column). An alias is **unique within an entry**
+  (case-insensitive); the same alias string may legitimately appear under
+  different entries and is not globally unique. Rows cascade-delete with
+  the parent entry.
 - **central_ingredient_count_units** — many rows per central entry,
   holding a count unit name (e.g. `piece`, `clove`) and its grams-per-unit
-  (REAL). An entry may have zero or more.
+  (REAL). An entry may have zero or more. The unit name is **unique
+  within an entry** (case-insensitive). Rows cascade-delete with the
+  parent entry.
 - **cuisines** — controlled vocabulary. Columns: cuisine key (PK string),
   `label_de`, `label_en`.
 - **sessions** — server-side sessions for authenticated users. See
