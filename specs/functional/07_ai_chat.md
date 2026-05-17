@@ -100,6 +100,20 @@ as Next.js client-side links so clicking them navigates without a
 full reload. Entity links replace bare names; the model never invents
 links to entities it has not first fetched via the read tools.
 
+## Live updates after writes
+
+When a server-write tool succeeds (rating set/clear, recipe update,
+ingredient update or delete), the affected page paths are revalidated
+on the server (`revalidatePath` against `/recipes`,
+`/recipes/<id>`, `/ingredients`, `/ingredients/<id>` as relevant) and
+the chat sidebar triggers a client-side soft refresh
+(`router.refresh()`). The user sees the new data reflected in the list
+or detail view they are already on without having to navigate or
+reload — for example, the ratings chip on `/recipes` updates the
+moment the chat finishes setting a rating. Client-side form-patch
+tools (`patch_recipe_form`, `patch_ingredient_form`) do not trigger a
+refresh because they only mutate React form state, not the database.
+
 ## Tools
 
 See `specs/tech/02_llm.md` for the tool catalog. Tools are grouped:

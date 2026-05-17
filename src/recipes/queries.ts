@@ -20,6 +20,7 @@ import {
     recipes,
     users,
 } from '@/db/schema'
+import { foldForMatch } from '@/ingredients/name-match'
 import type { RolledUpRecipe } from './rollup'
 
 export type CuisineRow = {
@@ -434,46 +435,31 @@ export function findRecipesUsingIngredient(
         .all()
 }
 
+/**
+ * Indexed equality on the pre-folded columns. Two probes (canonicals,
+ * aliases), each O(log n). The fold algorithm (`foldForMatch`) is the same
+ * one used at write time, so the comparison matches what the DB stores.
+ */
 export function findIngredientByName(name: string): IngredientId | null {
-    const needle = normalizeForMatch(name.trim())
+    const needle = foldForMatch(name.trim())
     if (!needle) return null
-    // SQLite's built-in lower() is ASCII-only, so German umlauts and other
-    // non-ASCII characters wouldn't fold correctly via a SQL comparison.
-    // We load the small catalog and match in JS with NFC + locale-aware
-    // lower-case. The catalog is family-sized; this is fine.
-    const canonicalRows = db
-        .select({
-            id: ingredients.id,
-            canonicalDe: ingredients.canonicalDe,
-            canonicalEn: ingredients.canonicalEn,
-        })
+    const canonicalHit = db
+        .select({ id: ingredients.id })
         .from(ingredients)
-        .all()
-    for (const row of canonicalRows) {
-        if (
-            normalizeForMatch(row.canonicalDe ?? '') === needle ||
-            normalizeForMatch(row.canonicalEn ?? '') === needle
-        ) {
-            return row.id
-        }
-    }
-    const aliasRows = db
-        .select({
-            id: ingredientAliases.ingredientId,
-            alias: ingredientAliases.alias,
-        })
+        .where(
+            or(
+                eq(ingredients.canonicalDeFolded, needle),
+                eq(ingredients.canonicalEnFolded, needle),
+            ),
+        )
+        .get()
+    if (canonicalHit) return canonicalHit.id
+    const aliasHit = db
+        .select({ id: ingredientAliases.ingredientId })
         .from(ingredientAliases)
-        .all()
-    for (const row of aliasRows) {
-        if (normalizeForMatch(row.alias) === needle) {
-            return row.id
-        }
-    }
-    return null
-}
-
-function normalizeForMatch(s: string): string {
-    return s.trim().normalize('NFC').toLocaleLowerCase()
+        .where(eq(ingredientAliases.aliasFolded, needle))
+        .get()
+    return aliasHit?.id ?? null
 }
 
 export type IngredientOption = {

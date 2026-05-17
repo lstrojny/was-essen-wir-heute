@@ -1,5 +1,6 @@
 import { tool } from 'ai'
 import { and, eq } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import type { SessionUser } from '@/auth/session'
 import { db } from '@/db'
@@ -21,7 +22,12 @@ import {
     recipeSteps,
     recipes,
 } from '@/db/schema'
-import { getIngredient, listIngredients } from '@/ingredients/queries'
+import { foldForMatch } from '@/ingredients/name-match'
+import {
+    findAliasConflict,
+    getIngredient,
+    listIngredients,
+} from '@/ingredients/queries'
 import {
     findDirectChildrenForMany,
     findIngredientByName,
@@ -341,6 +347,8 @@ export function buildChatTools({
                         .run()
                 }
                 const aggregate = getRatingAggregateForRecipe(id)
+                revalidatePath('/recipes')
+                revalidatePath(`/recipes/${id}`)
                 return {
                     ok: true,
                     score,
@@ -396,6 +404,8 @@ export function buildChatTools({
                     )
                     .run()
                 const aggregate = getRatingAggregateForRecipe(id)
+                revalidatePath('/recipes')
+                revalidatePath(`/recipes/${id}`)
                 return {
                     ok: true,
                     aggregateAverage: aggregate.average,
@@ -604,17 +614,23 @@ export function buildChatTools({
                     if (parsedIngredients) {
                         parsedIngredients = parsedIngredients.map((ing) => {
                             if (ing.ingredientId || !ing.name.trim()) return ing
+                            const trimmedName = ing.name.trim()
+                            const folded = foldForMatch(trimmedName)
                             const inserted = db
                                 .insert(ingredientsTable)
                                 .values({
                                     canonicalDe:
                                         activeLanguage === 'de'
-                                            ? ing.name.trim()
+                                            ? trimmedName
                                             : null,
                                     canonicalEn:
                                         activeLanguage === 'en'
-                                            ? ing.name.trim()
+                                            ? trimmedName
                                             : null,
+                                    canonicalDeFolded:
+                                        activeLanguage === 'de' ? folded : null,
+                                    canonicalEnFolded:
+                                        activeLanguage === 'en' ? folded : null,
                                     role: 'none',
                                     density: null,
                                     notes: null,
@@ -703,6 +719,8 @@ export function buildChatTools({
                         }
                     }
                 })
+                revalidatePath('/recipes')
+                revalidatePath(`/recipes/${id}`)
                 return {
                     ok: true,
                     appliedTo: title,
@@ -814,6 +832,36 @@ export function buildChatTools({
                     current.canonicalEn ??
                     current.canonicalDe ??
                     '(unnamed ingredient)'
+
+                if (patch.aliases !== undefined) {
+                    const nextCanonicalDe =
+                        patch.canonicalDe !== undefined
+                            ? patch.canonicalDe
+                            : current.canonicalDe
+                    const nextCanonicalEn =
+                        patch.canonicalEn !== undefined
+                            ? patch.canonicalEn
+                            : current.canonicalEn
+                    const conflict = findAliasConflict(
+                        patch.aliases,
+                        id,
+                        nextCanonicalDe,
+                        nextCanonicalEn,
+                    )
+                    if (conflict) {
+                        if (
+                            conflict.reason === 'canonical-on-same-ingredient'
+                        ) {
+                            return {
+                                error: `alias "${conflict.alias}" is already this ingredient's canonical name — redundant`,
+                            }
+                        }
+                        return {
+                            error: `alias "${conflict.alias}" is already used by "${conflict.ownerLabel}" (id=${conflict.ownerId})`,
+                        }
+                    }
+                }
+
                 if (!confirmed) {
                     return {
                         needs_confirmation: true,
@@ -825,10 +873,18 @@ export function buildChatTools({
                     const updates: Record<string, unknown> = {
                         updatedAt: new Date(),
                     }
-                    if (patch.canonicalDe !== undefined)
+                    if (patch.canonicalDe !== undefined) {
                         updates.canonicalDe = patch.canonicalDe || null
-                    if (patch.canonicalEn !== undefined)
+                        updates.canonicalDeFolded = patch.canonicalDe
+                            ? foldForMatch(patch.canonicalDe)
+                            : null
+                    }
+                    if (patch.canonicalEn !== undefined) {
                         updates.canonicalEn = patch.canonicalEn || null
+                        updates.canonicalEnFolded = patch.canonicalEn
+                            ? foldForMatch(patch.canonicalEn)
+                            : null
+                    }
                     if (patch.role !== undefined) updates.role = patch.role
                     if (patch.density !== undefined)
                         updates.density = patch.density
@@ -848,6 +904,7 @@ export function buildChatTools({
                                     patch.aliases.map((alias) => ({
                                         ingredientId: id,
                                         alias,
+                                        aliasFolded: foldForMatch(alias),
                                     })),
                                 )
                                 .run()
@@ -870,6 +927,9 @@ export function buildChatTools({
                         }
                     }
                 })
+                revalidatePath('/ingredients')
+                revalidatePath(`/ingredients/${id}`)
+                revalidatePath('/recipes')
                 return {
                     ok: true,
                     appliedTo: label,
@@ -912,6 +972,9 @@ export function buildChatTools({
                 db.delete(ingredientsTable)
                     .where(eq(ingredientsTable.id, id))
                     .run()
+                revalidatePath('/ingredients')
+                revalidatePath(`/ingredients/${id}`)
+                revalidatePath('/recipes')
                 return {
                     ok: true,
                     appliedTo: label,

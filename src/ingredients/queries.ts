@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, ne, or, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import type { IngredientId } from '@/db/ids'
 import {
@@ -6,6 +6,7 @@ import {
     ingredientCountUnits,
     ingredients,
 } from '@/db/schema'
+import { foldForMatch } from './name-match'
 
 export type IngredientListRow = {
     id: IngredientId
@@ -47,7 +48,7 @@ export function listIngredients(search: string): IngredientListRow[] {
     const trimmed = search.trim()
     if (!trimmed) return rows
 
-    const needle = normalizeForMatch(trimmed)
+    const needle = foldForMatch(trimmed)
     const aliasesById = new Map<IngredientId, string[]>()
     for (const a of db.select().from(ingredientAliases).all()) {
         const list = aliasesById.get(a.ingredientId) ?? []
@@ -55,7 +56,7 @@ export function listIngredients(search: string): IngredientListRow[] {
         aliasesById.set(a.ingredientId, list)
     }
     return rows.filter((row) => {
-        const haystack = normalizeForMatch(
+        const haystack = foldForMatch(
             [
                 row.canonicalDe ?? '',
                 row.canonicalEn ?? '',
@@ -64,11 +65,6 @@ export function listIngredients(search: string): IngredientListRow[] {
         )
         return haystack.includes(needle)
     })
-}
-
-function normalizeForMatch(s: string): string {
-    // NFC so "ö" (U+00F6) and "ö" (NFD) compare equal, then locale-aware lower-case.
-    return s.normalize('NFC').toLocaleLowerCase()
 }
 
 export type IngredientDetail = {
@@ -117,4 +113,147 @@ export function getIngredient(id: IngredientId): IngredientDetail | null {
         aliases,
         countUnits,
     }
+}
+
+export type AliasConflict = {
+    alias: string
+    reason:
+        | 'alias-on-other-ingredient'
+        | 'canonical-on-other-ingredient'
+        | 'canonical-on-same-ingredient'
+    ownerId: IngredientId | null
+    ownerLabel: string | null
+}
+
+/**
+ * Returns the first proposed alias that collides with anything in the
+ * catalog, or null if none collide. Uses `foldForMatch` so umlaut-only,
+ * digraph-only, or diacritic-only differences are caught.
+ *
+ * Collisions:
+ *  - the proposed alias matches an alias on another ingredient
+ *    (`alias-on-other-ingredient`)
+ *  - the proposed alias matches the canonical name (DE or EN) of another
+ *    ingredient (`canonical-on-other-ingredient`)
+ *  - the proposed alias matches the *same ingredient's* own canonical name
+ *    — redundant, since the canonical is already a match
+ *    (`canonical-on-same-ingredient`)
+ *
+ * `excludeIngredientId` is the ingredient currently being edited (null on
+ * create). Its existing aliases are skipped (so re-saving the same alias
+ * does not flag itself), but its canonicals are NOT skipped — we want to
+ * flag "alias equals own canonical" as redundant.
+ */
+/**
+ * Indexed lookup: for each proposed alias, run two equality queries against
+ * the folded columns. With unique/btree indexes on `ingredient_aliases.alias_folded`,
+ * `ingredients.canonical_de_folded`, `ingredients.canonical_en_folded` this is
+ * O(log n) per probe.
+ */
+export function findAliasConflict(
+    proposed: string[],
+    excludeIngredientId: IngredientId | null,
+    proposedCanonicalDe: string | null = null,
+    proposedCanonicalEn: string | null = null,
+): AliasConflict | null {
+    if (proposed.length === 0) return null
+
+    const proposedFolds: Array<{ raw: string; folded: string }> = []
+    const seen = new Set<string>()
+    for (const raw of proposed) {
+        const folded = foldForMatch(raw)
+        if (!folded || seen.has(folded)) continue
+        seen.add(folded)
+        proposedFolds.push({ raw, folded })
+    }
+    if (proposedFolds.length === 0) return null
+
+    // Pre-fold the live canonicals so we can catch "alias equals my own
+    // canonical" without a round-trip — the DB may not have them yet.
+    const selfCanonDe = proposedCanonicalDe
+        ? foldForMatch(proposedCanonicalDe)
+        : null
+    const selfCanonEn = proposedCanonicalEn
+        ? foldForMatch(proposedCanonicalEn)
+        : null
+
+    for (const { raw, folded } of proposedFolds) {
+        if (
+            (selfCanonDe && selfCanonDe === folded) ||
+            (selfCanonEn && selfCanonEn === folded)
+        ) {
+            return {
+                alias: raw,
+                reason: 'canonical-on-same-ingredient',
+                ownerId: null,
+                ownerLabel: null,
+            }
+        }
+
+        // 1. Look up against canonical_*_folded indexes.
+        const canonicalHit = db
+            .select({
+                id: ingredients.id,
+                canonicalDe: ingredients.canonicalDe,
+                canonicalEn: ingredients.canonicalEn,
+            })
+            .from(ingredients)
+            .where(
+                or(
+                    eq(ingredients.canonicalDeFolded, folded),
+                    eq(ingredients.canonicalEnFolded, folded),
+                ),
+            )
+            .get()
+        if (canonicalHit) {
+            const sameRow = canonicalHit.id === excludeIngredientId
+            return {
+                alias: raw,
+                reason: sameRow
+                    ? 'canonical-on-same-ingredient'
+                    : 'canonical-on-other-ingredient',
+                ownerId: sameRow ? null : canonicalHit.id,
+                ownerLabel: sameRow
+                    ? null
+                    : (canonicalHit.canonicalEn ??
+                      canonicalHit.canonicalDe ??
+                      '(unnamed)'),
+            }
+        }
+
+        // 2. Look up against alias_folded (unique global index).
+        const aliasHit = db
+            .select({
+                ingredientId: ingredientAliases.ingredientId,
+                canonicalDe: ingredients.canonicalDe,
+                canonicalEn: ingredients.canonicalEn,
+            })
+            .from(ingredientAliases)
+            .innerJoin(
+                ingredients,
+                eq(ingredients.id, ingredientAliases.ingredientId),
+            )
+            .where(
+                excludeIngredientId !== null
+                    ? and(
+                          eq(ingredientAliases.aliasFolded, folded),
+                          ne(
+                              ingredientAliases.ingredientId,
+                              excludeIngredientId,
+                          ),
+                      )
+                    : eq(ingredientAliases.aliasFolded, folded),
+            )
+            .get()
+        if (aliasHit) {
+            return {
+                alias: raw,
+                reason: 'alias-on-other-ingredient',
+                ownerId: aliasHit.ingredientId,
+                ownerLabel:
+                    aliasHit.canonicalEn ?? aliasHit.canonicalDe ?? '(unnamed)',
+            }
+        }
+    }
+    return null
 }

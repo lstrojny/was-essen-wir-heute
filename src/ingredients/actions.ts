@@ -11,6 +11,30 @@ import {
     ingredientCountUnits,
     ingredients,
 } from '@/db/schema'
+import { foldForMatch } from './name-match'
+import { type AliasConflict, findAliasConflict } from './queries'
+
+function foldOrNull(s: string | null): string | null {
+    if (s === null) return null
+    const f = foldForMatch(s)
+    return f === '' ? null : f
+}
+
+function aliasConflictMessage(
+    conflict: AliasConflict,
+    tErr: (key: string, values?: Record<string, string | number>) => string,
+): string {
+    switch (conflict.reason) {
+        case 'alias-on-other-ingredient':
+        case 'canonical-on-other-ingredient':
+            return tErr('aliasDuplicate', {
+                alias: conflict.alias,
+                owner: conflict.ownerLabel ?? '(?)',
+            })
+        case 'canonical-on-same-ingredient':
+            return tErr('aliasEqualsCanonical', { alias: conflict.alias })
+    }
+}
 
 type FieldsErrorKey =
     | 'canonicalRequired'
@@ -160,6 +184,15 @@ export async function createIngredientAction(
     if (typeof fields === 'string') {
         return { error: tErr(fields) }
     }
+    const conflict = findAliasConflict(
+        fields.aliases,
+        null,
+        fields.canonicalDe,
+        fields.canonicalEn,
+    )
+    if (conflict) {
+        return { error: aliasConflictMessage(conflict, tErr) }
+    }
     let newId: IngredientId | undefined
     db.transaction(() => {
         const inserted = db
@@ -167,6 +200,8 @@ export async function createIngredientAction(
             .values({
                 canonicalDe: fields.canonicalDe,
                 canonicalEn: fields.canonicalEn,
+                canonicalDeFolded: foldOrNull(fields.canonicalDe),
+                canonicalEnFolded: foldOrNull(fields.canonicalEn),
                 role: fields.role,
                 density: fields.density,
                 notes: fields.notes,
@@ -181,6 +216,7 @@ export async function createIngredientAction(
                     fields.aliases.map((alias) => ({
                         ingredientId: id,
                         alias,
+                        aliasFolded: foldForMatch(alias),
                     })),
                 )
                 .run()
@@ -226,11 +262,22 @@ export async function updateIngredientAction(
     if (!existing) {
         return { error: tErr('ingredientNotFound') }
     }
+    const conflict = findAliasConflict(
+        fields.aliases,
+        id,
+        fields.canonicalDe,
+        fields.canonicalEn,
+    )
+    if (conflict) {
+        return { error: aliasConflictMessage(conflict, tErr) }
+    }
     db.transaction(() => {
         db.update(ingredients)
             .set({
                 canonicalDe: fields.canonicalDe,
                 canonicalEn: fields.canonicalEn,
+                canonicalDeFolded: foldOrNull(fields.canonicalDe),
+                canonicalEnFolded: foldOrNull(fields.canonicalEn),
                 role: fields.role,
                 density: fields.density,
                 notes: fields.notes,
@@ -247,6 +294,7 @@ export async function updateIngredientAction(
                     fields.aliases.map((alias) => ({
                         ingredientId: id,
                         alias,
+                        aliasFolded: foldForMatch(alias),
                     })),
                 )
                 .run()
@@ -267,6 +315,53 @@ export async function updateIngredientAction(
         }
     })
     return { success: tForm('saved') }
+}
+
+export type AliasCheckConflict = {
+    alias: string
+    reason: AliasConflict['reason']
+    ownerId: string | null
+    ownerLabel: string | null
+}
+
+export type AliasCheckResult =
+    | { ok: true }
+    | { ok: false; conflict: AliasCheckConflict }
+
+/**
+ * Server action: synchronously validate one proposed alias without writing.
+ * Used by IngredientForm to surface inline errors as the user adds. Backed
+ * by indexed lookups on the folded columns. Returns the structured conflict
+ * so the client can render it with a link to the owning ingredient.
+ */
+export async function checkAliasAvailableAction(
+    proposed: string,
+    excludeIngredientId: string | null,
+    canonicalDe: string,
+    canonicalEn: string,
+): Promise<AliasCheckResult> {
+    await requireSetupOrSession()
+    const trimmed = proposed.trim()
+    if (!trimmed) return { ok: true }
+    const exclude = excludeIngredientId
+        ? parseIngredientId(excludeIngredientId)
+        : null
+    const conflict = findAliasConflict(
+        [trimmed],
+        exclude,
+        canonicalDe || null,
+        canonicalEn || null,
+    )
+    if (!conflict) return { ok: true }
+    return {
+        ok: false,
+        conflict: {
+            alias: conflict.alias,
+            reason: conflict.reason,
+            ownerId: conflict.ownerId,
+            ownerLabel: conflict.ownerLabel,
+        },
+    }
 }
 
 export async function deleteIngredientAction(data: FormData): Promise<void> {

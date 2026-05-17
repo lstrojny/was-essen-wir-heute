@@ -78,14 +78,28 @@ exact column names and types are settled at implementation.
 - **ingredients** — one row per ingredient catalog entry. Language-
   independent fields: role (enum: `starch`, `vegetable`, `protein`,
   `none`), optional density (g/ml), notes. Per-language canonicals live
-  on this row as separate columns (see below). (Renamed from
-  `central_ingredients` in migration 0005.)
+  on this row as separate columns. Carries pre-computed folded copies
+  `canonical_de_folded` and `canonical_en_folded` (NFC + German digraph
+  expansion + diacritic strip — same fold as `ingredient_aliases.alias_folded`)
+  with btree indexes so name-equality lookups (auto-link on recipe save,
+  alias-vs-canonical collision) are O(log n). The app writes the folded
+  value on every insert/update from JS so the algorithm matches across
+  the source and the index. A startup hook recomputes folded values
+  for any row whose stored fold drifts from `foldForMatch(source)`,
+  catching schema changes and the SQLite-`lower()` ASCII gap from the
+  initial backfill. (Tables renamed from `central_ingredients` in
+  migration 0005.)
 - **ingredient_aliases** — many rows per ingredient, holding a single
-  alias string. Aliases are matching-only and language-agnostic (no
-  language column). An alias is **unique within an entry**
-  (case-insensitive); the same alias string may legitimately appear
-  under different entries and is not globally unique. Rows
-  cascade-delete with the parent entry. FK column is `ingredient_id`.
+  alias string plus the pre-computed `alias_folded`. Aliases are
+  matching-only and language-agnostic (no language column). An alias
+  is **globally unique across the whole catalog** (NFC + German
+  digraph + diacritic-stripped). Enforced by SQLite via
+  `UNIQUE INDEX ingredient_aliases_folded_global_unique ON
+  ingredient_aliases (alias_folded)`. Indexed equality on the folded
+  column drives both server-side save validation and the inline
+  client check (via a server action — no client-side preload of the
+  catalog). Rows cascade-delete with the parent entry. FK column is
+  `ingredient_id`.
 - **ingredient_count_units** — many rows per ingredient, holding a
   count unit name (e.g. `piece`, `clove`) and its grams-per-unit
   (REAL). An entry may have zero or more. The unit name is **unique

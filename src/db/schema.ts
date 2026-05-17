@@ -76,25 +76,42 @@ export const sessions = sqliteTable(
     ],
 )
 
-export const ingredients = sqliteTable('ingredients', {
-    id: text('id')
-        .primaryKey()
-        .$type<IngredientId>()
-        .$defaultFn(() => newIngredientId()),
-    canonicalDe: text('canonical_de'),
-    canonicalEn: text('canonical_en'),
-    role: text('role', {
-        enum: ['starch', 'vegetable', 'protein', 'none'],
-    }).notNull(),
-    density: real('density'),
-    notes: text('notes'),
-    createdAt: timestampMs('created_at')
-        .notNull()
-        .default(sql`(unixepoch() * 1000)`),
-    updatedAt: timestampMs('updated_at')
-        .notNull()
-        .default(sql`(unixepoch() * 1000)`),
-})
+export const ingredients = sqliteTable(
+    'ingredients',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<IngredientId>()
+            .$defaultFn(() => newIngredientId()),
+        canonicalDe: text('canonical_de'),
+        canonicalEn: text('canonical_en'),
+        // Pre-computed folded forms (NFC + de-locale lower-case + German digraph
+        // expansion + diacritic strip). Written from JS on every insert/update
+        // so name-equality lookups can use a btree index. Kept in sync with the
+        // source columns by app code; a startup hook repairs drift.
+        canonicalDeFolded: text('canonical_de_folded'),
+        canonicalEnFolded: text('canonical_en_folded'),
+        role: text('role', {
+            enum: ['starch', 'vegetable', 'protein', 'none'],
+        }).notNull(),
+        density: real('density'),
+        notes: text('notes'),
+        createdAt: timestampMs('created_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+        updatedAt: timestampMs('updated_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+    },
+    (table) => [
+        index('ingredients_canonical_de_folded_idx').on(
+            table.canonicalDeFolded,
+        ),
+        index('ingredients_canonical_en_folded_idx').on(
+            table.canonicalEnFolded,
+        ),
+    ],
+)
 
 export const ingredientAliases = sqliteTable(
     'ingredient_aliases',
@@ -105,18 +122,18 @@ export const ingredientAliases = sqliteTable(
             .$defaultFn(() => newIngredientAliasId()),
         ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
         alias: text('alias').notNull(),
+        // Pre-computed folded form for indexed equality lookups (NFC +
+        // de-locale lower + German digraph + diacritic strip). Globally
+        // unique — see the index below.
+        aliasFolded: text('alias_folded'),
     },
     (table) => [
         foreignKey({
             columns: [table.ingredientId],
             foreignColumns: [ingredients.id],
         }).onDelete('cascade'),
-        uniqueIndex('central_ingredient_aliases_entry_alias_unique').on(
-            table.ingredientId,
-            sql`lower(${table.alias})`,
-        ),
-        index('central_ingredient_aliases_alias_idx').on(
-            sql`lower(${table.alias})`,
+        uniqueIndex('ingredient_aliases_folded_global_unique').on(
+            table.aliasFolded,
         ),
     ],
 )

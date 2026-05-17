@@ -12,6 +12,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
@@ -23,11 +24,14 @@ import {
 } from 'react'
 import type { IngredientId } from '@/db/ids'
 import {
+    type AliasCheckConflict,
+    checkAliasAvailableAction,
     createIngredientAction,
     deleteIngredientAction,
     type IngredientFormState,
     updateIngredientAction,
 } from '@/ingredients/actions'
+import { foldForMatch } from '@/ingredients/name-match'
 import {
     type IngredientFormPatch,
     type IngredientFormSnapshot,
@@ -88,10 +92,61 @@ export function IngredientForm({
     const [notes, setNotes] = useState(initialValues.notes)
     const [aliases, setAliases] = useState<string[]>(initialValues.aliases)
     const [aliasDraft, setAliasDraft] = useState('')
+    type AliasError =
+        | { kind: 'text'; message: string }
+        | { kind: 'conflict'; conflict: AliasCheckConflict }
+    const [aliasError, setAliasError] = useState<AliasError | null>(null)
     const [countUnits, setCountUnits] = useState(initialValues.countUnits)
     const [changed, setChanged] = useState<ChangedIngredientFields>(
         emptyChanged(),
     )
+
+    function renderAliasError(err: AliasError | null): React.ReactNode {
+        if (!err) return ' '
+        if (err.kind === 'text') return err.message
+        const { conflict } = err
+        if (!conflict.ownerId || !conflict.ownerLabel) {
+            // Same-ingredient (canonical) or other case without a target.
+            return conflict.reason === 'canonical-on-same-ingredient'
+                ? t('errors.aliasEqualsCanonical', { alias: conflict.alias })
+                : t('errors.aliasDuplicate', {
+                      alias: conflict.alias,
+                      owner: conflict.ownerLabel ?? '?',
+                  })
+        }
+        const ownerId = conflict.ownerId
+        const ownerLabel = conflict.ownerLabel
+        return t.rich('errors.aliasDuplicateRich', {
+            alias: conflict.alias,
+            owner: ownerLabel,
+            link: (chunks) => (
+                <Link
+                    href={`/ingredients/${ownerId}`}
+                    style={{ color: 'inherit', textDecoration: 'underline' }}
+                >
+                    {chunks}
+                </Link>
+            ),
+        })
+    }
+
+    function localAliasError(raw: string): AliasError | null {
+        const folded = foldForMatch(raw)
+        if (!folded) return null
+        if (aliases.some((a) => foldForMatch(a) === folded)) {
+            return { kind: 'text', message: t('errors.aliasAlreadyOnList') }
+        }
+        if (
+            (canonicalDe && foldForMatch(canonicalDe) === folded) ||
+            (canonicalEn && foldForMatch(canonicalEn) === folded)
+        ) {
+            return {
+                kind: 'text',
+                message: t('errors.aliasEqualsCanonical', { alias: raw }),
+            }
+        }
+        return null
+    }
 
     function clearChange(field: keyof ChangedIngredientFields) {
         if (!changed[field]) return
@@ -205,27 +260,54 @@ export function IngredientForm({
     )
     useRegisterIngredientBridge(bridge)
 
-    function addAlias() {
+    const [checkingAlias, setCheckingAlias] = useState(false)
+
+    async function addAlias() {
         const v = aliasDraft.trim()
         if (!v) return
-        if (aliases.some((a) => a.toLowerCase() === v.toLowerCase())) {
-            setAliasDraft('')
+        const localError = localAliasError(v)
+        if (localError) {
+            setAliasError(localError)
             return
+        }
+        setCheckingAlias(true)
+        setAliasError(null)
+        try {
+            const result = await checkAliasAvailableAction(
+                v,
+                initialValues.id,
+                canonicalDe,
+                canonicalEn,
+            )
+            if (!result.ok) {
+                setAliasError({ kind: 'conflict', conflict: result.conflict })
+                return
+            }
+        } catch (err) {
+            setAliasError({
+                kind: 'text',
+                message: err instanceof Error ? err.message : String(err),
+            })
+            return
+        } finally {
+            setCheckingAlias(false)
         }
         setAliases([...aliases, v])
         setAliasDraft('')
+        setAliasError(null)
         clearChange('aliases')
     }
 
     function handleAliasKey(e: KeyboardEvent<HTMLInputElement>) {
-        if (e.key === 'Enter' || e.key === ',') {
+        if (e.key === 'Enter') {
             e.preventDefault()
-            addAlias()
+            void addAlias()
         }
     }
 
     function removeAlias(target: string) {
         setAliases(aliases.filter((a) => a !== target))
+        setAliasError(null)
         clearChange('aliases')
     }
 
@@ -403,11 +485,28 @@ export function IngredientForm({
                             <TextField
                                 label={t('ingredients.form.aliases.addLabel')}
                                 value={aliasDraft}
-                                onChange={(e) => setAliasDraft(e.target.value)}
+                                onChange={(e) => {
+                                    setAliasDraft(e.target.value)
+                                    if (aliasError) setAliasError(null)
+                                }}
                                 onKeyDown={handleAliasKey}
+                                error={aliasError !== null}
+                                helperText={renderAliasError(aliasError)}
+                                slotProps={{
+                                    formHelperText: {
+                                        component: 'div',
+                                    },
+                                }}
                                 fullWidth
                             />
-                            <Button onClick={addAlias} variant="outlined">
+                            <Button
+                                onClick={() => void addAlias()}
+                                variant="outlined"
+                                disabled={
+                                    checkingAlias || aliasDraft.trim() === ''
+                                }
+                                sx={{ alignSelf: 'flex-start', mt: '8px' }}
+                            >
                                 {t('ingredients.form.aliases.add')}
                             </Button>
                         </Box>

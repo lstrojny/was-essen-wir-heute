@@ -21,6 +21,7 @@ import {
     recipes,
 } from '@/db/schema'
 import { resolveLocale } from '@/i18n/locale'
+import { foldForMatch } from '@/ingredients/name-match'
 import {
     findDirectChildrenForMany,
     findIngredientByName,
@@ -266,11 +267,14 @@ function resolveOrCreateIngredients(
         if (existing) {
             return { ...ing, ingredientId: existing }
         }
+        const folded = foldForMatch(trimmedName)
         const inserted = db
             .insert(ingredients)
             .values({
                 canonicalDe: activeLanguage === 'de' ? trimmedName : null,
                 canonicalEn: activeLanguage === 'en' ? trimmedName : null,
+                canonicalDeFolded: activeLanguage === 'de' ? folded : null,
+                canonicalEnFolded: activeLanguage === 'en' ? folded : null,
                 role: 'none',
                 density: null,
                 notes: null,

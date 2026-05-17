@@ -21,7 +21,14 @@ Each entry has:
   resolve to this entry during matching (e.g. "scallion", "green onion",
   "Lauchzwiebel"). Aliases are matching-only and never shown as the display
   name. The list may mix languages, which is what enables cross-language
-  matching.
+  matching. Each alias is **globally unique across the whole catalog**
+  (case-insensitive, Unicode-normalised, German digraph-folded). The
+  uniqueness check applies a single folding function shared by all
+  matching paths (canonical lookup, alias lookup, alias-add validation):
+  NFC normalisation, German-locale lower-case, German digraph expansion
+  (`ä↔ae`, `ö↔oe`, `ü↔ue`, `ß↔ss`), then generic Unicode diacritic strip
+  (`\p{M}` after NFD). Trying to add a duplicate alias surfaces an error
+  naming the existing owner.
 - **Role** — one of `starch`, `vegetable`, `protein`, or `none`.
 - **Conversion data** — see *Units and conversion* below. Optional.
 - **Notes** — optional free-text (e.g. seasonality, regional variants).

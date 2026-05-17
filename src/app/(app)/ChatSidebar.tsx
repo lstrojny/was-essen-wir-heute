@@ -13,7 +13,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { DefaultChatTransport } from 'ai'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import type { AnchorHTMLAttributes } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -127,9 +127,32 @@ function derivePageContextFromPath(
     return { pageKind: 'other', path: pathname }
 }
 
+const SERVER_WRITE_TOOL_NAMES = new Set([
+    'set_my_rating',
+    'clear_my_rating',
+    'update_recipe',
+    'update_ingredient',
+    'delete_ingredient',
+])
+
+function messageHasServerWrite(parts: ReadonlyArray<unknown>): boolean {
+    for (const part of parts) {
+        if (typeof part !== 'object' || part === null) continue
+        const p = part as { type?: unknown; output?: unknown }
+        if (typeof p.type !== 'string') continue
+        if (!p.type.startsWith('tool-')) continue
+        const name = p.type.slice('tool-'.length)
+        if (!SERVER_WRITE_TOOL_NAMES.has(name)) continue
+        const output = p.output as { ok?: unknown } | null | undefined
+        if (output && output.ok === true) return true
+    }
+    return false
+}
+
 export function ChatSidebar() {
     const t = useTranslations()
     const pathname = usePathname() ?? '/'
+    const router = useRouter()
     const bridgeApi = useFormBridgeApi()
     const pageContextRef = useRef<PageContext>({ pageKind: 'other' })
 
@@ -206,6 +229,13 @@ export function ChatSidebar() {
         transport,
         // biome-ignore lint/suspicious/noExplicitAny: AI SDK onToolCall signature
         onToolCall: onToolCall as any,
+        onFinish: ({ message }) => {
+            // Any successful server-write tool output → refresh the current
+            // route so list/detail views reflect the new DB state.
+            if (messageHasServerWrite(message.parts)) {
+                router.refresh()
+            }
+        },
     })
 
     // Refresh pageContext on every state change so the next sendMessage picks it up
