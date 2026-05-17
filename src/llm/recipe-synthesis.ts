@@ -1,4 +1,4 @@
-import { anthropic } from '@ai-sdk/anthropic'
+import { createOpenAI } from '@ai-sdk/openai'
 import { generateObject, type ModelMessage, stepCountIs, streamText } from 'ai'
 import { z } from 'zod'
 import {
@@ -8,8 +8,13 @@ import {
 } from '@/llm/tools'
 import type { RecipeDetail as SpoonacularRecipe } from '@/spoonacular/types'
 
+const litellm = createOpenAI({
+    baseURL: process.env.LITELLM_BASE_URL,
+    apiKey: process.env.LITELLM_API_KEY,
+})
+
 const DEFAULT_MODEL =
-    process.env.LLM_MODEL_CHAT_SYNTHESIS ?? 'claude-sonnet-4-6'
+    process.env.LLM_MODEL_CHAT_SYNTHESIS ?? 'anthropic/claude-sonnet-4-6'
 const TIMEOUT_MS = 60_000
 
 const ingredientSchema = z.object({
@@ -162,7 +167,7 @@ export async function synthesizeRecipe(
     input: RecipeSynthesisInput,
 ): Promise<SynthesizedRecipe> {
     const { object } = await generateObject({
-        model: anthropic(DEFAULT_MODEL),
+        model: litellm(DEFAULT_MODEL),
         schema: recipeSchema,
         system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
         prompt: buildPrompt(input),
@@ -241,7 +246,7 @@ export async function enrichSpoonacularImport(input: {
         'Produce the fully enriched bilingual recipe in the required schema. Apply all the rules from the system prompt: translation, cuisine mapping, wait-time extraction, ingredient name conventions, complete-meal flag, unit normalisation.',
     ].join('\n')
     const { object } = await generateObject({
-        model: anthropic(DEFAULT_MODEL),
+        model: litellm(DEFAULT_MODEL),
         schema: recipeSchema,
         system: buildEnrichmentSystemPrompt(
             input.cuisineKeys,
@@ -429,7 +434,7 @@ export function chatAboutRecipe(input: ChatTextInput) {
         ...(showFormPatchTools ? DETAIL_PAGE_CLIENT_TOOL_DEFS : {}),
     }
     return streamText({
-        model: anthropic(DEFAULT_MODEL),
+        model: litellm(DEFAULT_MODEL),
         system: buildChatSystemPrompt(input.activeLanguage, input.pageContext),
         messages: input.messages,
         abortSignal: input.abortSignal,
@@ -450,7 +455,7 @@ export async function synthesizeRecipeFromMessages(input: {
             'Based on our conversation, emit the final structured recipe now. Apply every rule from the system prompt: both-language titles/notes/steps, ingredient names in my active language, plural form for countable nouns, no qualifiers, canonical units, normalised wait vs active time, intendedServings reflecting our conversation.',
     }
     const { object } = await generateObject({
-        model: anthropic(DEFAULT_MODEL),
+        model: litellm(DEFAULT_MODEL),
         schema: recipeSchema,
         system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
         messages: [...input.messages, finalInstruction],

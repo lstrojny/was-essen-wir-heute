@@ -62,11 +62,19 @@ authenticate separately.
   translation, on-demand translate, future suggestion features) go through
   the **Vercel AI SDK** (`ai` package), which abstracts provider choice
   behind a uniform call shape.
-- v1 provider is **Anthropic Claude** via `@ai-sdk/anthropic`. Adding
-  OpenAI later is a config change at the call-site (`@ai-sdk/openai`).
-- Provider/model choice is **per call-site**, not global. Different
-  features pick the model that fits them: a cheap model for alias
-  suggestions, a stronger one for chat-import recipe synthesis or
+- The gateway is a **LiteLLM proxy** running on a separate host. The
+  proxy exposes an OpenAI-compatible API; the app uses `@ai-sdk/openai`
+  with a custom `baseURL` pointed at the proxy. Upstream providers
+  (Anthropic in v1, OpenAI/others later) are configured inside LiteLLM,
+  not in the app.
+- The app holds **no upstream provider keys** of its own. It authenticates
+  to LiteLLM with a virtual key. Provider keys (e.g. the Anthropic key)
+  live in LiteLLM's config.
+- Config env: `LITELLM_BASE_URL`, `LITELLM_API_KEY`.
+- Provider/model choice is **per call-site**, not global. Model
+  identifiers are LiteLLM model strings (e.g. `anthropic/claude-sonnet-4-6`).
+  Different features pick the model that fits them: a cheap model for
+  alias suggestions, a stronger one for chat-import recipe synthesis or
   translation review.
 - Details (call interface, retries, prompt boundaries, failure
   behaviour) live in `02_llm.md`.

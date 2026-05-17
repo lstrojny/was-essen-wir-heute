@@ -11,7 +11,10 @@ import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { DefaultChatTransport } from 'ai'
+import {
+    DefaultChatTransport,
+    lastAssistantMessageIsCompleteWithToolCalls,
+} from 'ai'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
@@ -158,87 +161,11 @@ export function ChatSidebar() {
     const bridgeApi = useFormBridgeApi()
     const pageContextRef = useRef<PageContext>({ pageKind: 'other' })
 
-    const onToolCall = useCallback(
-        async ({
-            toolCall,
-        }: {
-            toolCall: {
-                toolName: string
-                input: unknown
-                addToolResult: (result: unknown) => void
-            }
-        }) => {
-            const store = bridgeApi.getStore()
-            if (toolCall.toolName === 'patch_recipe_form') {
-                const patch = (
-                    toolCall.input as { patch?: RecipeFormPatch } | null
-                )?.patch
-                if (!patch) {
-                    toolCall.addToolResult({ error: 'missing patch' })
-                    return
-                }
-                if (!store.recipe) {
-                    toolCall.addToolResult({
-                        error: 'no recipe form open on this page',
-                    })
-                    return
-                }
-                store.recipe.applyPatch(patch)
-                toolCall.addToolResult({ ok: true, appliedTo: 'recipe form' })
-                return
-            }
-            if (toolCall.toolName === 'patch_ingredient_form') {
-                const patch = (
-                    toolCall.input as { patch?: IngredientFormPatch } | null
-                )?.patch
-                if (!patch) {
-                    toolCall.addToolResult({ error: 'missing patch' })
-                    return
-                }
-                if (!store.ingredient) {
-                    toolCall.addToolResult({
-                        error: 'no ingredient form open on this page',
-                    })
-                    return
-                }
-                store.ingredient.applyPatch(patch)
-                toolCall.addToolResult({
-                    ok: true,
-                    appliedTo: 'ingredient form',
-                })
-                return
-            }
-            if (toolCall.toolName === 'open_new_recipe_form') {
-                const recipe = (
-                    toolCall.input as { recipe?: NewRecipeDraft } | null
-                )?.recipe
-                if (!recipe) {
-                    toolCall.addToolResult({ error: 'missing recipe' })
-                    return
-                }
-                let draftId: string
-                try {
-                    draftId = storeNewRecipeDraft(recipe)
-                } catch (err) {
-                    toolCall.addToolResult({
-                        error:
-                            err instanceof Error
-                                ? `storage failed: ${err.message}`
-                                : 'storage failed',
-                    })
-                    return
-                }
-                router.push(`/recipes/new?draft=${encodeURIComponent(draftId)}`)
-                toolCall.addToolResult({
-                    ok: true,
-                    appliedTo: 'new recipe form',
-                    draftId,
-                })
-                return
-            }
-        },
-        [bridgeApi, router],
-    )
+    // Ref pattern: useChat's `onToolCall` callback needs `addToolResult` to
+    // report results, but `addToolResult` only exists *after* useChat returns.
+    // Capture it via a ref the moment the hook initialises.
+    // biome-ignore lint/suspicious/noExplicitAny: bridges typed addToolResult into the callback
+    const addToolResultRef = useRef<((args: any) => void) | null>(null)
 
     const transport = useMemo(
         () =>
@@ -255,10 +182,77 @@ export function ChatSidebar() {
         [],
     )
 
-    const { messages, sendMessage, status, stop, error } = useChat({
+    const onToolCall = useCallback(
+        ({
+            toolCall,
+        }: {
+            toolCall: { toolName: string; input: unknown; toolCallId: string }
+        }) => {
+            const store = bridgeApi.getStore()
+            const report = (output: unknown) => {
+                addToolResultRef.current?.({
+                    tool: toolCall.toolName,
+                    toolCallId: toolCall.toolCallId,
+                    output,
+                })
+            }
+            if (toolCall.toolName === 'patch_recipe_form') {
+                const patch = (
+                    toolCall.input as { patch?: RecipeFormPatch } | null
+                )?.patch
+                if (!patch) return report({ error: 'missing patch' })
+                if (!store.recipe) {
+                    return report({
+                        error: 'no recipe form open on this page',
+                    })
+                }
+                store.recipe.applyPatch(patch)
+                return report({ ok: true, appliedTo: 'recipe form' })
+            }
+            if (toolCall.toolName === 'patch_ingredient_form') {
+                const patch = (
+                    toolCall.input as { patch?: IngredientFormPatch } | null
+                )?.patch
+                if (!patch) return report({ error: 'missing patch' })
+                if (!store.ingredient) {
+                    return report({
+                        error: 'no ingredient form open on this page',
+                    })
+                }
+                store.ingredient.applyPatch(patch)
+                return report({ ok: true, appliedTo: 'ingredient form' })
+            }
+            if (toolCall.toolName === 'open_new_recipe_form') {
+                const recipe = (
+                    toolCall.input as { recipe?: NewRecipeDraft } | null
+                )?.recipe
+                if (!recipe) return report({ error: 'missing recipe' })
+                let draftId: string
+                try {
+                    draftId = storeNewRecipeDraft(recipe)
+                } catch (err) {
+                    return report({
+                        error:
+                            err instanceof Error
+                                ? `storage failed: ${err.message}`
+                                : 'storage failed',
+                    })
+                }
+                router.push(`/recipes/new?draft=${encodeURIComponent(draftId)}`)
+                return report({
+                    ok: true,
+                    appliedTo: 'new recipe form',
+                    draftId,
+                })
+            }
+        },
+        [bridgeApi, router],
+    )
+
+    const chat = useChat({
         transport,
-        // biome-ignore lint/suspicious/noExplicitAny: AI SDK onToolCall signature
-        onToolCall: onToolCall as any,
+        onToolCall,
+        sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
         onFinish: ({ message }) => {
             // Any successful server-write tool output → refresh the current
             // route so list/detail views reflect the new DB state.
@@ -267,6 +261,8 @@ export function ChatSidebar() {
             }
         },
     })
+    const { messages, sendMessage, status, stop, error, addToolResult } = chat
+    addToolResultRef.current = addToolResult
 
     // Refresh pageContext on every state change so the next sendMessage picks it up
     useEffect(() => {

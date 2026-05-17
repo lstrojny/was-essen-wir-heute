@@ -9,10 +9,20 @@ config detail behind a uniform call shape.
 
 ## v1 provider
 
-- **Anthropic Claude** via `@ai-sdk/anthropic`. API key is read from the
-  `ANTHROPIC_API_KEY` env var (SDK default).
-- Adding OpenAI later is a config change: install `@ai-sdk/openai`, swap
-  the model factory at the call-site. The feature code does not change.
+- The app talks to a **LiteLLM proxy** (running on a separate host) via
+  `@ai-sdk/openai` with a custom `baseURL`. LiteLLM exposes an
+  OpenAI-compatible API; for the app, every model — including Anthropic
+  Claude — is reached through that one adapter.
+- Configuration (read from env at startup):
+  - `LITELLM_BASE_URL` — the proxy's base URL (e.g.
+    `https://litellm.internal/v1`).
+  - `LITELLM_API_KEY` — virtual key issued by LiteLLM. The app holds no
+    upstream provider keys; the Anthropic key lives in LiteLLM's
+    config.
+- In v1 only Anthropic Claude is wired up upstream in LiteLLM. Adding
+  OpenAI (or any other provider) later is a LiteLLM-side config change
+  plus a model-string change at the call-site. The feature code does
+  not change.
 
 ## Internal abstraction
 
@@ -177,10 +187,12 @@ hard-coded:
 
 Model identifiers are supplied via environment variables (e.g.
 `LLM_MODEL_ENRICHMENT`, `LLM_MODEL_TRANSLATION`, `LLM_MODEL_CHAT_SYNTHESIS`,
-`LLM_MODEL_MATCH`). Changing a model is a config change, not a code change.
+`LLM_MODEL_MATCH`). Values are **LiteLLM model strings**
+(`<provider>/<model>`), which LiteLLM resolves to the right upstream
+provider. Changing a model is a config change, not a code change.
 Defaults for v1:
 
-- `LLM_MODEL_CHAT_SYNTHESIS` — `claude-sonnet-4-6`
+- `LLM_MODEL_CHAT_SYNTHESIS` — `anthropic/claude-sonnet-4-6`
 - (other operations defaulted as they are introduced)
 
 ## Prompts
