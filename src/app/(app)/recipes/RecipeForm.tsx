@@ -26,8 +26,8 @@ import {
     updateRecipeAction,
 } from '@/recipes/actions'
 import type {
-    IngredientOption,
     CuisineRow,
+    IngredientOption,
     RecipePickerRow,
 } from '@/recipes/queries'
 import type { RolledUpRecipe } from '@/recipes/rollup'

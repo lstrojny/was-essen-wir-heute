@@ -33,17 +33,11 @@ export function listIngredients(search: string): IngredientListRow[] {
         .from(ingredients)
         .leftJoin(
             ingredientAliases,
-            eq(
-                ingredientAliases.ingredientId,
-                ingredients.id,
-            ),
+            eq(ingredientAliases.ingredientId, ingredients.id),
         )
         .leftJoin(
             ingredientCountUnits,
-            eq(
-                ingredientCountUnits.ingredientId,
-                ingredients.id,
-            ),
+            eq(ingredientCountUnits.ingredientId, ingredients.id),
         )
         .groupBy(ingredients.id)
 
@@ -54,7 +48,7 @@ export function listIngredients(search: string): IngredientListRow[] {
                   like(sql`lower(${ingredients.canonicalEn})`, pattern),
                   sql`EXISTS (
                       SELECT 1 FROM ${ingredientAliases} a
-                      WHERE a.central_ingredient_id = ${ingredients.id}
+                      WHERE a.ingredient_id = ${ingredients.id}
                       AND lower(a.alias) LIKE ${pattern}
                   )`,
               ),
@@ -62,10 +56,7 @@ export function listIngredients(search: string): IngredientListRow[] {
         : baseQuery
 
     return query
-        .orderBy(
-            asc(ingredients.canonicalEn),
-            asc(ingredients.canonicalDe),
-        )
+        .orderBy(asc(ingredients.canonicalEn), asc(ingredients.canonicalDe))
         .all()
 }
 

@@ -22,8 +22,8 @@ import {
 } from '@/db/schema'
 import { resolveLocale } from '@/i18n/locale'
 import {
-    findIngredientByName,
     findDirectChildrenForMany,
+    findIngredientByName,
     findRecipesReferencing,
 } from './queries'
 

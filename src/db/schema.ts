@@ -103,9 +103,7 @@ export const ingredientAliases = sqliteTable(
             .primaryKey()
             .$type<IngredientAliasId>()
             .$defaultFn(() => newIngredientAliasId()),
-        ingredientId: text('ingredient_id')
-            .notNull()
-            .$type<IngredientId>(),
+        ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
         alias: text('alias').notNull(),
     },
     (table) => [
@@ -130,9 +128,7 @@ export const ingredientCountUnits = sqliteTable(
             .primaryKey()
             .$type<IngredientCountUnitId>()
             .$defaultFn(() => newIngredientCountUnitId()),
-        ingredientId: text('ingredient_id')
-            .notNull()
-            .$type<IngredientId>(),
+        ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
         unit: text('unit').notNull(),
         gramsPerUnit: real('grams_per_unit').notNull(),
     },

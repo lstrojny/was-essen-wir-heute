@@ -10,9 +10,9 @@ import type {
     UserId,
 } from '@/db/ids'
 import {
+    cuisines,
     ingredientAliases,
     ingredients,
-    cuisines,
     recipeComponents,
     recipeIngredients,
     recipeRatings,
@@ -487,10 +487,7 @@ export function listIngredientsForPicker(): IngredientOption[] {
             canonicalEn: ingredients.canonicalEn,
         })
         .from(ingredients)
-        .orderBy(
-            asc(ingredients.canonicalEn),
-            asc(ingredients.canonicalDe),
-        )
+        .orderBy(asc(ingredients.canonicalEn), asc(ingredients.canonicalDe))
         .all()
     const aliasRows = db
         .select({

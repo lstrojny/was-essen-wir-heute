@@ -12,8 +12,8 @@ import {
     getRatingAggregateForRecipe,
     getRecipe,
     getRolledUpRecipe,
-    listIngredientsForPicker,
     listCuisines,
+    listIngredientsForPicker,
     listRatingsForRecipe,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'

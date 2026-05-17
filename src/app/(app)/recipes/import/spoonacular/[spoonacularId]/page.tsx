@@ -8,8 +8,8 @@ import { synthesizedToFormInitial } from '@/app/(app)/recipes/recipe-form-conver
 import { requireSetupOrSession } from '@/auth/guards'
 import { enrichSpoonacularImport } from '@/llm/recipe-synthesis'
 import {
-    listIngredientsForPicker,
     listCuisines,
+    listIngredientsForPicker,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'
 import { spoonacularToFormInitial } from '@/recipes/spoonacular-import'

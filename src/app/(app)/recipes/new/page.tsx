@@ -5,8 +5,8 @@ import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { DEFAULT_FORM_SERVINGS } from '@/recipes/constants'
 import {
-    listIngredientsForPicker,
     listCuisines,
+    listIngredientsForPicker,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'
 import { RecipeForm, type RecipeFormInitial } from '../RecipeForm'
