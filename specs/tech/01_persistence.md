@@ -153,6 +153,34 @@ exact column names and types are settled at implementation.
   CASCADE), `unit_code` (`'label'`), `translated_string_id` (group id
   referencing `translated_strings.id`). PK is
   `(cuisine_key, unit_code)`.
+- **meal_plan_settings** — single-row table holding the active meal-plan
+  window and look-back length. Columns: `id` (INTEGER PRIMARY KEY,
+  forced to `1`), `active_window_start` (TEXT, `YYYY-MM-DD`),
+  `active_window_end` (TEXT, `YYYY-MM-DD`), `recent_window_weeks`
+  (INTEGER, default `4`), `created_at`, `updated_at`. The row is
+  seeded by the migration with the default window (tomorrow through
+  tomorrow + 6, computed at migration time) and the default look-back
+  of 4 weeks. The single-row pattern matches `spoonacular_quota`.
+  Calendar dates use `TEXT YYYY-MM-DD` instead of the epoch-ms
+  encoding used for timestamps — these are wall-clock days, not
+  points in time, and SQLite orders ISO-8601 strings correctly
+  lexicographically. See `specs/functional/02_meal_plan.md`.
+- **meal_plan_entries** — one row per occupied day in the meal plan
+  (current window or past). An **empty** slot is the *absence* of a
+  row; states **suggested**, **edited**, **pinned**, and **cleared**
+  are stored. Columns: `id` (UUIDv7 TEXT, branded `MealPlanEntryId`),
+  `date` (TEXT `YYYY-MM-DD`, UNIQUE), `recipe_id` (TEXT, FK →
+  `recipes(id)` ON DELETE RESTRICT, nullable — null only when state
+  is `cleared`), `state` (TEXT enum: `suggested` | `edited` |
+  `pinned` | `cleared`), `created_at`, `updated_at`. A `CHECK`
+  enforces that `state = 'cleared'` iff `recipe_id IS NULL`.
+  Indexes: the UNIQUE on `date` covers window-range scans;
+  a non-unique index on `recipe_id` covers "when did we last eat
+  this?" lookups used by the variety penalty in
+  `02_meal_plan.md`. Entries persist past their date as history;
+  shrinking the active window deletes entries whose date is in the
+  future and falls outside the new window, but leaves past entries
+  untouched.
 - **sessions** — server-side sessions for authenticated users. See
   `04_auth.md` for the column shape.
 - **spoonacular_cache** — cached Spoonacular API responses keyed by
@@ -251,7 +279,9 @@ those functional specs land.
 Recipe deletion semantics are an open question in `01_recipes.md`. Until
 that is resolved, deletes are **hard** but constrained by foreign keys:
 deleting a recipe that is referenced by `recipe_components` or by a
-meal-plan entry (future) is rejected.
+`meal_plan_entries` row is rejected. The meal-plan FK is
+`ON DELETE RESTRICT`, so historical entries (past dates) also block
+deletion until the soft-delete question is resolved.
 
 ## Open questions
 

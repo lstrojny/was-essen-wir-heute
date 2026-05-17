@@ -1,6 +1,7 @@
 'use server'
 
 import { eq } from 'drizzle-orm'
+import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
@@ -157,6 +158,9 @@ export async function updateOwnProfileAction(
         .set({ displayName, language, updatedAt: new Date() })
         .where(eq(users.id, session.user.id))
         .run()
+    if (language !== session.user.language) {
+        revalidatePath('/', 'layout')
+    }
     return { success: tProfile('saved') }
 }
 
