@@ -106,6 +106,7 @@
             "empty": "This ingredient is not currently used in any recipe."
         },
         "searchPlaceholder": "Search canonical names or aliases…",
+        "filterUnusedOnly": "Show only unused ingredients",
         "emptyAll": "No ingredients yet.",
         "emptySearch": "No ingredients match that search.",
         "unnamed": "(unnamed)",

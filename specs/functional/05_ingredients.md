@@ -79,6 +79,13 @@ transitively through a composite component are not (yet) walked.
 The reverse lookup is a useful "what can I cook with X?" entry point
 that complements the (still-deferred) full ingredient-based search.
 
+The ingredient list view also offers a complementary **"unused only"**
+filter that hides every entry referenced by at least one recipe row,
+leaving only orphans the user might want to delete or merge. The filter
+combines with the text search, so the user can find unused entries
+matching a query. Components are not walked — an ingredient that only
+appears in a recipe via a composite component is still considered used.
+
 ### Naming convention
 
 The ingredient *name* is the bare canonical noun. Qualifiers describing

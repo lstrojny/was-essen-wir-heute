@@ -106,6 +106,7 @@
             "empty": "Diese Zutat wird aktuell in keinem Rezept verwendet."
         },
         "searchPlaceholder": "Namen oder Aliasse durchsuchen …",
+        "filterUnusedOnly": "Nur ungenutzte Zutaten anzeigen",
         "emptyAll": "Noch keine Zutaten.",
         "emptySearch": "Keine Zutaten passen zu dieser Suche.",
         "unnamed": "(ohne Namen)",

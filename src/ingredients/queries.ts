@@ -5,6 +5,7 @@ import {
     ingredientAliases,
     ingredientCountUnits,
     ingredients,
+    recipeIngredients,
 } from '@/db/schema'
 import { foldForMatch } from './name-match'
 
@@ -18,7 +19,10 @@ export type IngredientListRow = {
     countUnitCount: number
 }
 
-export function listIngredients(search: string): IngredientListRow[] {
+export function listIngredients(
+    search: string,
+    unusedOnly = false,
+): IngredientListRow[] {
     // Load everything; filter in JS so Unicode case-folding works (SQLite's
     // built-in lower() is ASCII-only, so "Olivenöl" LIKE "%öl%" misses the
     // capital "Ö" case). Catalog is family-sized; this is fine.
@@ -31,6 +35,7 @@ export function listIngredients(search: string): IngredientListRow[] {
             density: ingredients.density,
             aliasCount: sql<number>`count(distinct ${ingredientAliases.id})`,
             countUnitCount: sql<number>`count(distinct ${ingredientCountUnits.id})`,
+            recipeUseCount: sql<number>`count(distinct ${recipeIngredients.id})`,
         })
         .from(ingredients)
         .leftJoin(
@@ -41,12 +46,20 @@ export function listIngredients(search: string): IngredientListRow[] {
             ingredientCountUnits,
             eq(ingredientCountUnits.ingredientId, ingredients.id),
         )
+        .leftJoin(
+            recipeIngredients,
+            eq(recipeIngredients.ingredientId, ingredients.id),
+        )
         .groupBy(ingredients.id)
         .orderBy(asc(ingredients.canonicalEn), asc(ingredients.canonicalDe))
         .all()
 
+    const filteredByUse = unusedOnly
+        ? rows.filter((r) => r.recipeUseCount === 0)
+        : rows
+
     const trimmed = search.trim()
-    if (!trimmed) return rows
+    if (!trimmed) return filteredByUse
 
     const needle = foldForMatch(trimmed)
     const aliasesById = new Map<IngredientId, string[]>()
@@ -55,7 +68,7 @@ export function listIngredients(search: string): IngredientListRow[] {
         list.push(a.alias)
         aliasesById.set(a.ingredientId, list)
     }
-    return rows.filter((row) => {
+    return filteredByUse.filter((row) => {
         const haystack = foldForMatch(
             [
                 row.canonicalDe ?? '',

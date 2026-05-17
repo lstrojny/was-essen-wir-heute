@@ -15,13 +15,14 @@ import { SearchBox } from './SearchBox'
 export default async function IngredientsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ q?: string }>
+    searchParams: Promise<{ q?: string; unused?: string }>
 }) {
     const session = await requireSetupOrSession()
     const t = await getTranslations()
     const params = await searchParams
     const q = (params.q ?? '').trim()
-    const rows = listIngredients(q)
+    const unusedOnly = params.unused === '1'
+    const rows = listIngredients(q, unusedOnly)
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
@@ -45,7 +46,7 @@ export default async function IngredientsPage({
                         </Button>
                     </Link>
                 </Box>
-                <SearchBox defaultValue={q} />
+                <SearchBox defaultValue={q} unusedOnly={unusedOnly} />
                 {rows.length === 0 ? (
                     <Paper sx={{ p: 3 }} variant="outlined">
                         <Typography color="text.secondary">
