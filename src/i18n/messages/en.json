@@ -16,6 +16,7 @@
     "nav": {
         "recipes": "Recipes",
         "ingredients": "Ingredients",
+        "plan": "Plan",
         "settings": "Settings",
         "users": "Users",
         "logout": "Log out"
@@ -215,6 +216,57 @@
         "spoonacularNoKey": "SPOONACULAR_API_KEY is not set — configure it as an env var.",
         "spoonacularInvalidId": "Please enter a valid Spoonacular ID or URL.",
         "ratingScoreInvalid": "Rating must be an integer between 1 and 5."
+    },
+    "plan": {
+        "title": "Meal plan",
+        "subtitle": "One main meal per day. Pinned, edited, and cleared days survive regeneration.",
+        "generate": "Plan this week",
+        "regenerate": "Regenerate empty days",
+        "generating": "Planning…",
+        "windowStart": "Start",
+        "windowEnd": "End",
+        "lookbackWeeks": "Recent-week look-back",
+        "saveWindow": "Save",
+        "savingWindow": "Saving…",
+        "emptySlot": "No meal — pick one",
+        "clearedSlot": "No meal planned for this day",
+        "noSuggestion": "No suggestion — pick manually",
+        "stateMarker": {
+            "suggested": "Suggested",
+            "edited": "Edited",
+            "pinned": "Pinned",
+            "cleared": "Cleared"
+        },
+        "actions": {
+            "pin": "Pin",
+            "unpin": "Unpin",
+            "unedit": "Reset to suggestion",
+            "clear": "Clear",
+            "restore": "Restore",
+            "replace": "Replace"
+        },
+        "picker": {
+            "title": "Pick a recipe for {date}",
+            "search": "Search recipes…",
+            "empty": "No complete-meal recipes match.",
+            "noRecipes": "No complete-meal recipes yet — mark some recipes as complete meals first.",
+            "score": "Score {score}",
+            "lastEatenNever": "Never eaten on plan",
+            "lastEatenOn": "Last eaten {date}",
+            "cancel": "Cancel",
+            "select": "Select"
+        },
+        "weekday": {
+            "long": {
+                "0": "Sunday",
+                "1": "Monday",
+                "2": "Tuesday",
+                "3": "Wednesday",
+                "4": "Thursday",
+                "5": "Friday",
+                "6": "Saturday"
+            }
+        }
     },
     "recipes": {
         "title": "Recipes",

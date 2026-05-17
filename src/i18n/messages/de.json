@@ -16,6 +16,7 @@
     "nav": {
         "recipes": "Rezepte",
         "ingredients": "Zutaten",
+        "plan": "Plan",
         "settings": "Einstellungen",
         "users": "Benutzer",
         "logout": "Abmelden"
@@ -215,6 +216,57 @@
         "spoonacularNoKey": "SPOONACULAR_API_KEY ist nicht gesetzt — bitte als Umgebungsvariable konfigurieren.",
         "spoonacularInvalidId": "Bitte eine gültige Spoonacular-ID oder URL eingeben.",
         "ratingScoreInvalid": "Bewertung muss eine ganze Zahl von 1 bis 5 sein."
+    },
+    "plan": {
+        "title": "Essensplan",
+        "subtitle": "Eine Hauptmahlzeit pro Tag. Angeheftete, geänderte und geleerte Tage bleiben beim Neuplanen erhalten.",
+        "generate": "Diese Woche planen",
+        "regenerate": "Leere Tage neu planen",
+        "generating": "Plane…",
+        "windowStart": "Start",
+        "windowEnd": "Ende",
+        "lookbackWeeks": "Rückblick (Wochen)",
+        "saveWindow": "Speichern",
+        "savingWindow": "Speichere…",
+        "emptySlot": "Kein Essen — bitte auswählen",
+        "clearedSlot": "Für diesen Tag ist kein Essen geplant",
+        "noSuggestion": "Kein Vorschlag — bitte manuell wählen",
+        "stateMarker": {
+            "suggested": "Vorschlag",
+            "edited": "Geändert",
+            "pinned": "Angeheftet",
+            "cleared": "Geleert"
+        },
+        "actions": {
+            "pin": "Anheften",
+            "unpin": "Anheftung lösen",
+            "unedit": "Zurück zum Vorschlag",
+            "clear": "Leeren",
+            "restore": "Wiederherstellen",
+            "replace": "Ersetzen"
+        },
+        "picker": {
+            "title": "Rezept für {date} auswählen",
+            "search": "Rezepte suchen…",
+            "empty": "Keine vollständigen Mahlzeiten passen.",
+            "noRecipes": "Noch keine vollständigen Mahlzeiten — markiere zuerst Rezepte als vollständige Mahlzeit.",
+            "score": "Punkte {score}",
+            "lastEatenNever": "Noch nie geplant",
+            "lastEatenOn": "Zuletzt am {date}",
+            "cancel": "Abbrechen",
+            "select": "Auswählen"
+        },
+        "weekday": {
+            "long": {
+                "0": "Sonntag",
+                "1": "Montag",
+                "2": "Dienstag",
+                "3": "Mittwoch",
+                "4": "Donnerstag",
+                "5": "Freitag",
+                "6": "Samstag"
+            }
+        }
     },
     "recipes": {
         "title": "Rezepte",

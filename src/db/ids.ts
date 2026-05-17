@@ -15,6 +15,7 @@ export type RecipeRatingId = Brand<'RecipeRatingId'>
 export type CuisineKey = Brand<'CuisineKey'>
 export type IngredientsAliasId = Brand<'IngredientsAliasId'>
 export type TranslatedStringGroupId = Brand<'TranslatedStringGroupId'>
+export type MealPlanEntryId = Brand<'MealPlanEntryId'>
 
 export const newUserId = (): UserId => uuidv7() as UserId
 export const newIngredientId = (): IngredientId => uuidv7() as IngredientId
@@ -32,6 +33,11 @@ export const newRecipeRatingId = (): RecipeRatingId =>
     uuidv7() as RecipeRatingId
 export const newTranslatedStringGroupId = (): TranslatedStringGroupId =>
     uuidv7() as TranslatedStringGroupId
+export const newMealPlanEntryId = (): MealPlanEntryId =>
+    uuidv7() as MealPlanEntryId
+
+export const parseMealPlanEntryId = (value: string): MealPlanEntryId | null =>
+    uuidValidate(value) ? (value as MealPlanEntryId) : null
 
 export const parseUserId = (value: string): UserId | null =>
     uuidValidate(value) ? (value as UserId) : null

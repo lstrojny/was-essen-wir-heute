@@ -75,11 +75,17 @@ Each candidate gets a score from:
   - Aggregate rating **< 3.0** → strong negative.
   - Anything between → neutral.
 - **Variety penalty across the week**: once a recipe is placed,
-  subsequent picks pay a penalty for sharing a derived main-ingredient
+  subsequent picks pay a penalty for sharing role-tagged ingredients
   with an already-placed day. Penalties apply per role (`starch`,
   `protein`, `vegetable`) — two pasta-topped days are worse than two
   pasta days a week apart. Repeating the same **cuisine** in adjacent
-  days pays a smaller penalty.
+  days pays a smaller penalty. v1 uses *every role-tagged ingredient
+  in the rolled-up recipe* (deduped per ingredient id) as the variety
+  signal. The gram-largest main-ingredient derivation in
+  `05_ingredients.md` is the eventual sharper signal, but it depends
+  on density and per-unit-mass data that is sparse in the catalog
+  today; until coverage improves, the cruder set-overlap signal is
+  what scoring runs on.
 - **Repetition penalty across recent weeks**: a recipe used 1 week ago
   pays more than one used 3 weeks ago. Recipes outside the look-back
   window pay nothing.

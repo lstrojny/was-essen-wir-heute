@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+    check,
     foreignKey,
     index,
     integer,
@@ -14,9 +15,11 @@ import {
     type IngredientCountUnitId,
     type IngredientId,
     type IngredientsAliasId,
+    type MealPlanEntryId,
     newIngredientCountUnitId,
     newIngredientId,
     newIngredientsAliasId,
+    newMealPlanEntryId,
     newRecipeComponentId,
     newRecipeId,
     newRecipeIngredientId,
@@ -395,6 +398,52 @@ export const ingredientsAliases = sqliteTable(
             columns: [table.ingredientId],
             foreignColumns: [ingredients.id],
         }).onDelete('cascade'),
+    ],
+)
+
+export const mealPlanSettings = sqliteTable('meal_plan_settings', {
+    id: integer('id').primaryKey(),
+    activeWindowStart: text('active_window_start').notNull(),
+    activeWindowEnd: text('active_window_end').notNull(),
+    recentWindowWeeks: integer('recent_window_weeks').notNull().default(4),
+    createdAt: timestampMs('created_at')
+        .notNull()
+        .default(sql`(unixepoch() * 1000)`),
+    updatedAt: timestampMs('updated_at')
+        .notNull()
+        .default(sql`(unixepoch() * 1000)`),
+})
+
+export const mealPlanEntries = sqliteTable(
+    'meal_plan_entries',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<MealPlanEntryId>()
+            .$defaultFn(() => newMealPlanEntryId()),
+        date: text('date').notNull(),
+        recipeId: text('recipe_id').$type<RecipeId>(),
+        state: text('state', {
+            enum: ['suggested', 'edited', 'pinned', 'cleared'],
+        }).notNull(),
+        createdAt: timestampMs('created_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+        updatedAt: timestampMs('updated_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.recipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('restrict'),
+        uniqueIndex('meal_plan_entries_date_unique').on(table.date),
+        index('meal_plan_entries_recipe_id_idx').on(table.recipeId),
+        check(
+            'meal_plan_entries_cleared_iff_no_recipe',
+            sql`(${table.state} = 'cleared' AND ${table.recipeId} IS NULL) OR (${table.state} <> 'cleared' AND ${table.recipeId} IS NOT NULL)`,
+        ),
     ],
 )
 

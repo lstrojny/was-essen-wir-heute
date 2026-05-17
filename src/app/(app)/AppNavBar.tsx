@@ -36,6 +36,9 @@ export function AppNavBar({
                 >
                     {t('app.title')}
                 </Typography>
+                <Button component={Link} href="/plan" size="small">
+                    {t('nav.plan')}
+                </Button>
                 <Button component={Link} href="/recipes" size="small">
                     {t('nav.recipes')}
                 </Button>
