@@ -1,4 +1,4 @@
-import { asc, eq, like, or, sql } from 'drizzle-orm'
+import { asc, eq, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import type { IngredientId } from '@/db/ids'
 import {
@@ -18,9 +18,10 @@ export type IngredientListRow = {
 }
 
 export function listIngredients(search: string): IngredientListRow[] {
-    const trimmed = search.trim()
-    const pattern = `%${trimmed.toLowerCase()}%`
-    const baseQuery = db
+    // Load everything; filter in JS so Unicode case-folding works (SQLite's
+    // built-in lower() is ASCII-only, so "Olivenöl" LIKE "%öl%" misses the
+    // capital "Ö" case). Catalog is family-sized; this is fine.
+    const rows = db
         .select({
             id: ingredients.id,
             canonicalDe: ingredients.canonicalDe,
@@ -40,24 +41,34 @@ export function listIngredients(search: string): IngredientListRow[] {
             eq(ingredientCountUnits.ingredientId, ingredients.id),
         )
         .groupBy(ingredients.id)
-
-    const query = trimmed
-        ? baseQuery.where(
-              or(
-                  like(sql`lower(${ingredients.canonicalDe})`, pattern),
-                  like(sql`lower(${ingredients.canonicalEn})`, pattern),
-                  sql`EXISTS (
-                      SELECT 1 FROM ${ingredientAliases} a
-                      WHERE a.ingredient_id = ${ingredients.id}
-                      AND lower(a.alias) LIKE ${pattern}
-                  )`,
-              ),
-          )
-        : baseQuery
-
-    return query
         .orderBy(asc(ingredients.canonicalEn), asc(ingredients.canonicalDe))
         .all()
+
+    const trimmed = search.trim()
+    if (!trimmed) return rows
+
+    const needle = normalizeForMatch(trimmed)
+    const aliasesById = new Map<IngredientId, string[]>()
+    for (const a of db.select().from(ingredientAliases).all()) {
+        const list = aliasesById.get(a.ingredientId) ?? []
+        list.push(a.alias)
+        aliasesById.set(a.ingredientId, list)
+    }
+    return rows.filter((row) => {
+        const haystack = normalizeForMatch(
+            [
+                row.canonicalDe ?? '',
+                row.canonicalEn ?? '',
+                ...(aliasesById.get(row.id) ?? []),
+            ].join(' '),
+        )
+        return haystack.includes(needle)
+    })
+}
+
+function normalizeForMatch(s: string): string {
+    // NFC so "ö" (U+00F6) and "ö" (NFD) compare equal, then locale-aware lower-case.
+    return s.normalize('NFC').toLocaleLowerCase()
 }
 
 export type IngredientDetail = {

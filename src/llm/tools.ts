@@ -181,16 +181,17 @@ export function buildChatTools({
 
         list_ingredients: tool({
             description:
-                "List or search the user's ingredient catalog. Returns canonical names (DE/EN), role (starch/vegetable/protein/none), density, alias and count-unit counts. Use to answer 'what ingredients do I have?', 'do I have ginger?', 'show me my proteins'. Pass an empty string for query to list everything; pass a substring to match canonical names and aliases.",
+                "List or search the user's ingredient catalog. Returns canonical names (DE/EN), role (starch/vegetable/protein/none), density, alias and count-unit counts. To answer 'what ingredients do I have?' or 'show me my catalog' you MUST omit `query` entirely (or pass an empty string) — do NOT invent a search term like 'all' or 'Zutaten', because it would filter the result by that substring. Only pass `query` when the user names a specific ingredient (e.g. 'do I have ginger?' → query='ginger').",
             inputSchema: z.object({
                 query: z
                     .string()
+                    .optional()
                     .describe(
-                        'Free-text substring to match against canonical names (DE/EN) and aliases. Empty string lists every ingredient.',
+                        'Free-text substring to match against canonical names (DE/EN) and aliases. Omit (or pass an empty string) to list every ingredient.',
                     ),
             }),
             execute: async ({ query }) => {
-                const rows = listIngredients(query)
+                const rows = listIngredients(query ?? '')
                 return {
                     count: rows.length,
                     ingredients: rows.map((r) => ({

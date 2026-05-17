@@ -262,29 +262,83 @@ export type PageContext =
       }
     | { pageKind: 'other'; path?: string }
 
+type RecipeFormCtx = {
+    id?: string | null
+    titleDe?: string | null
+    titleEn?: string | null
+    cuisineKey?: string | null
+    isCompleteMeal?: boolean
+    activeTimeMinutes?: string
+    waitTimeMinutes?: string
+    ingredients?: Array<unknown>
+    steps?: Array<unknown>
+}
+
+type IngredientFormCtx = {
+    id?: string | null
+    canonicalDe?: string | null
+    canonicalEn?: string | null
+    role?: string
+    density?: string
+    aliases?: string[]
+    countUnits?: Array<unknown>
+}
+
+function summarizeRecipeForm(r: unknown): string {
+    if (typeof r !== 'object' || r === null) return '(no form data)'
+    const f = r as RecipeFormCtx
+    const id = f.id ?? '(unsaved)'
+    const title = f.titleEn || f.titleDe || '(unnamed)'
+    return [
+        `id=${id}`,
+        `title="${title}"`,
+        f.cuisineKey ? `cuisine=${f.cuisineKey}` : null,
+        f.isCompleteMeal ? 'complete=true' : null,
+        f.activeTimeMinutes ? `active=${f.activeTimeMinutes}min` : null,
+        f.waitTimeMinutes ? `wait=${f.waitTimeMinutes}min` : null,
+        `ingredients=${f.ingredients?.length ?? 0}`,
+        `steps=${f.steps?.length ?? 0}`,
+    ]
+        .filter(Boolean)
+        .join(', ')
+}
+
+function summarizeIngredientForm(r: unknown): string {
+    if (typeof r !== 'object' || r === null) return '(no form data)'
+    const f = r as IngredientFormCtx
+    const id = f.id ?? '(unsaved)'
+    const name = f.canonicalEn || f.canonicalDe || '(unnamed)'
+    return [
+        `id=${id}`,
+        `name="${name}"`,
+        f.role ? `role=${f.role}` : null,
+        f.density ? `density=${f.density}g/ml` : null,
+        f.aliases?.length ? `aliases=${f.aliases.length}` : null,
+        f.countUnits?.length ? `countUnits=${f.countUnits.length}` : null,
+    ]
+        .filter(Boolean)
+        .join(', ')
+}
+
 function describePageContext(ctx: PageContext): string {
     switch (ctx.pageKind) {
         case 'recipes-list':
             return 'The user is on the recipes list page. Help them search, filter, or design a new recipe. Form-patch tools are NOT available on this page.'
         case 'ingredients-list':
-            return 'The user is on the ingredients list page. Help them search the central ingredient catalog. Form-patch tools are NOT available on this page.'
+            return 'The user is on the ingredients list page. Help them search the catalog. Form-patch tools are NOT available on this page.'
         case 'recipe-detail':
             return [
-                'The user is on a recipe detail page editing an existing recipe.',
-                'The current OPEN form state (live, may include unsaved edits) is:',
-                '```json',
-                JSON.stringify(ctx.recipe, null, 2),
-                '```',
-                'You can call `patch_recipe_form` with a sparse patch to update the form. The user reviews highlighted changes and clicks Save to persist. Do NOT call `patch_recipe_form` unless the user clearly asked for a change. Confirm what you will change in your reply, then call the tool in the same turn.',
+                'The user is on a recipe detail page. Open form summary:',
+                summarizeRecipeForm(ctx.recipe),
+                'If you need the full current state (ingredients, steps, notes, etc.) call `get_recipe` with the id. The DB version is what the user sees unless they made unsaved edits.',
+                'You can call `patch_recipe_form` with a sparse patch to update the open form. The user reviews highlighted changes and clicks Save to persist. Do NOT call `patch_recipe_form` unless the user clearly asked for a change. Confirm what you will change in your reply, then call the tool in the same turn.',
                 'For ingredient `amount` in the patch: pass the per-1-serving normalised amount; the form scales for display.',
             ].join('\n')
         case 'ingredient-detail':
             return [
-                'The user is on an ingredient detail page editing a central catalog entry.',
-                'The current OPEN form state is:',
-                '```json',
-                JSON.stringify(ctx.ingredient, null, 2),
-                '```',
+                'The user is on an ingredient detail page. Open form summary:',
+                summarizeIngredientForm(ctx.ingredient),
+                'If you need the full current state (aliases, count units, notes) call `get_ingredient` with the id.',
                 'You can call `patch_ingredient_form` with a sparse patch (e.g. add an alias). Always include the FULL replacement list when supplying `aliases` or `countUnits` — existing entries the user wants to keep must be re-included. Do NOT call the tool unless the user clearly asked for a change.',
             ].join('\n')
         case 'other':
@@ -341,6 +395,11 @@ function buildChatSystemPrompt(
         "These do NOT take a `confirmed` flag — the form's yellow change-highlights plus the user's manual Save button act as the confirmation.",
         '',
         'When a tool returns, summarise what you found or changed in plain language. Never paste raw JSON into your reply. If a tool fails (returns an `error` field), tell the user briefly and suggest a next step.',
+        '',
+        'Entity links: whenever your reply mentions a recipe or ingredient that you have fetched via a tool (and therefore have its id), render its name as a markdown link to its detail page:',
+        '- recipes → `[Title](/recipes/<id>)`',
+        '- ingredients → `[Name](/ingredients/<id>)`',
+        "Use the display title in the user's active language for the link text (German if the user wrote in German, otherwise English; fall back to the other language if one is missing). Never invent ids — only link entities whose id appeared in a tool result this conversation.",
     ].join('\n')
 }
 

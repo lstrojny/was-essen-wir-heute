@@ -435,12 +435,12 @@ export function findRecipesUsingIngredient(
 }
 
 export function findIngredientByName(name: string): IngredientId | null {
-    const lowered = name.trim().toLocaleLowerCase()
-    if (!lowered) return null
+    const needle = normalizeForMatch(name.trim())
+    if (!needle) return null
     // SQLite's built-in lower() is ASCII-only, so German umlauts and other
     // non-ASCII characters wouldn't fold correctly via a SQL comparison.
-    // We load the small catalog and match in JS, which uses Unicode-aware
-    // case folding. The catalog is family-sized; this is fine.
+    // We load the small catalog and match in JS with NFC + locale-aware
+    // lower-case. The catalog is family-sized; this is fine.
     const canonicalRows = db
         .select({
             id: ingredients.id,
@@ -451,8 +451,8 @@ export function findIngredientByName(name: string): IngredientId | null {
         .all()
     for (const row of canonicalRows) {
         if (
-            row.canonicalDe?.trim().toLocaleLowerCase() === lowered ||
-            row.canonicalEn?.trim().toLocaleLowerCase() === lowered
+            normalizeForMatch(row.canonicalDe ?? '') === needle ||
+            normalizeForMatch(row.canonicalEn ?? '') === needle
         ) {
             return row.id
         }
@@ -465,11 +465,15 @@ export function findIngredientByName(name: string): IngredientId | null {
         .from(ingredientAliases)
         .all()
     for (const row of aliasRows) {
-        if (row.alias.trim().toLocaleLowerCase() === lowered) {
+        if (normalizeForMatch(row.alias) === needle) {
             return row.id
         }
     }
     return null
+}
+
+function normalizeForMatch(s: string): string {
+    return s.trim().normalize('NFC').toLocaleLowerCase()
 }
 
 export type IngredientOption = {

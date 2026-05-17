@@ -26,9 +26,12 @@ The chat receives a structured **page context** on every request:
 - **Page kind**: `recipes-list`, `recipe-detail`, `ingredients-list`,
   `ingredient-detail`, or `other`.
 - **Entity id** when on a detail page.
-- **Current form values** when on a detail page (recipe form or
-  ingredient form). The chat receives the *as-edited* form state, not
-  necessarily the saved row, so the user can talk about pending edits.
+- **Current form values** when on a detail page. To keep prompt tokens
+  bounded across long forms (recipes with many ingredients or steps),
+  the system message contains only a **compact summary** (id, title,
+  cuisine, ingredient/step counts, etc.) plus the open-form id. The
+  model is instructed to call `get_recipe` / `get_ingredient` when it
+  needs the full current state.
 
 The context is supplied to the model in a system message preamble so
 its replies and tool choices fit what the user is looking at. The
@@ -87,6 +90,15 @@ returns an action descriptor. Initial set:
   calls a `patch_*` tool, the patch is applied immediately and the
   affected fields are highlighted. There is no separate confirm step
   in v1 (the highlight + manual save acts as the confirmation).
+
+## Entity links in chat replies
+
+When the AI mentions a recipe or ingredient that exists in the
+catalog, it emits a markdown link to the corresponding detail page
+(`/recipes/<id>` or `/ingredients/<id>`). The sidebar renders those
+as Next.js client-side links so clicking them navigates without a
+full reload. Entity links replace bare names; the model never invents
+links to entities it has not first fetched via the read tools.
 
 ## Tools
 

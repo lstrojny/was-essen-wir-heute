@@ -12,8 +12,10 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { DefaultChatTransport } from 'ai'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
+import type { AnchorHTMLAttributes } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -23,6 +25,33 @@ import {
     type RecipeFormPatch,
     useFormBridgeApi,
 } from './FormBridge'
+
+function MarkdownLink({
+    href,
+    children,
+    ...props
+}: AnchorHTMLAttributes<HTMLAnchorElement>) {
+    if (!href) {
+        return <a {...props}>{children}</a>
+    }
+    const isInternal = href.startsWith('/')
+    if (isInternal) {
+        return (
+            <Link href={href} style={{ color: 'inherit' }}>
+                {children}
+            </Link>
+        )
+    }
+    return (
+        <a {...props} href={href} target="_blank" rel="noreferrer noopener">
+            {children}
+        </a>
+    )
+}
+
+const MARKDOWN_COMPONENTS = {
+    a: MarkdownLink,
+}
 
 type ToolPart = {
     type: string
@@ -314,6 +343,9 @@ export function ChatSidebar() {
                                             >
                                                 <ReactMarkdown
                                                     remarkPlugins={[remarkGfm]}
+                                                    components={
+                                                        MARKDOWN_COMPONENTS
+                                                    }
                                                 >
                                                     {part.text}
                                                 </ReactMarkdown>
