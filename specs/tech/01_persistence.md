@@ -63,9 +63,9 @@ exact column names and types are settled at implementation.
 - **recipe_steps** — ordered list per recipe. The row carries the position
   and **per-language text columns** (`text_de`, `text_en`).
 - **recipe_ingredients** — ordered list per recipe. Each row holds amount
-  (REAL), unit (string), free-text name (string), and a nullable FK to
-  `central_ingredients` for the linked row. Order is preserved by a
-  position column.
+  (REAL), unit (string), free-text name (string), and a nullable FK
+  `ingredient_id` to `ingredients` for the linked row. Order is
+  preserved by a position column.
 - **recipe_components** — ordered references from a composite recipe to
   its component recipes. Columns: `parent_recipe_id`, `child_recipe_id`,
   position. Both FKs reference `recipes(id)`. Cycles are forbidden — see
@@ -75,21 +75,24 @@ exact column names and types are settled at implementation.
   user. The aggregate (average + count) used by list and detail views
   is computed by a per-recipe `GROUP BY` over this table, joined onto
   the recipe row at read time (not denormalized).
-- **central_ingredients** — one row per central entry. Language-
+- **ingredients** — one row per ingredient catalog entry. Language-
   independent fields: role (enum: `starch`, `vegetable`, `protein`,
   `none`), optional density (g/ml), notes. Per-language canonicals live
-  on this row as separate columns (see below).
-- **central_ingredient_aliases** — many rows per central entry, holding a
-  single alias string. Aliases are matching-only and language-agnostic
-  (no language column). An alias is **unique within an entry**
-  (case-insensitive); the same alias string may legitimately appear under
-  different entries and is not globally unique. Rows cascade-delete with
-  the parent entry.
-- **central_ingredient_count_units** — many rows per central entry,
-  holding a count unit name (e.g. `piece`, `clove`) and its grams-per-unit
+  on this row as separate columns (see below). (Renamed from
+  `central_ingredients` in migration 0005.)
+- **ingredient_aliases** — many rows per ingredient, holding a single
+  alias string. Aliases are matching-only and language-agnostic (no
+  language column). An alias is **unique within an entry**
+  (case-insensitive); the same alias string may legitimately appear
+  under different entries and is not globally unique. Rows
+  cascade-delete with the parent entry. FK column is `ingredient_id`.
+- **ingredient_count_units** — many rows per ingredient, holding a
+  count unit name (e.g. `piece`, `clove`) and its grams-per-unit
   (REAL). An entry may have zero or more. The unit name is **unique
   within an entry** (case-insensitive). Rows cascade-delete with the
-  parent entry.
+  parent entry. FK column is `ingredient_id`.
+- **recipe_ingredients** carries `ingredient_id` (was
+  `central_ingredient_id`) referencing `ingredients(id)`.
 - **cuisines** — controlled vocabulary. Columns: cuisine key (PK string),
   `label_de`, `label_en`. **Seeded** in the recipes migration with a
   v1 starter set (`italian`, `thai`, `german`, `french`, `mexican`,
@@ -112,7 +115,7 @@ a join table or a JSON blob:
 
 - `recipes`: `title_de`, `title_en`, `notes_de`, `notes_en`
 - `recipe_steps`: `text_de`, `text_en`
-- `central_ingredients`: `canonical_de`, `canonical_en`
+- `ingredients`: `canonical_de`, `canonical_en`
 - `cuisines`: `label_de`, `label_en`
 
 The two-language scope (see `06_i18n.md`) makes columns the simplest
@@ -145,8 +148,8 @@ component references first; deletion is otherwise refused.
 Cross-language search over recipe titles, ingredient names, and aliases
 is needed once `02_meal_plan.md` and `03_tonights_dinner.md` exist.
 SQLite's **FTS5** module is the planned implementation: shadow FTS tables
-indexed off the canonical tables (recipes, central_ingredients,
-central_ingredient_aliases), populated by triggers. Detailed search
+indexed off the canonical tables (recipes, ingredients,
+ingredient_aliases), populated by triggers. Detailed search
 behaviour is deferred until those functional specs land.
 
 ## Deletion

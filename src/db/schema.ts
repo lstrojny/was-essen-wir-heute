@@ -76,7 +76,7 @@ export const sessions = sqliteTable(
     ],
 )
 
-export const centralIngredients = sqliteTable('central_ingredients', {
+export const ingredients = sqliteTable('ingredients', {
     id: text('id')
         .primaryKey()
         .$type<IngredientId>()
@@ -96,25 +96,25 @@ export const centralIngredients = sqliteTable('central_ingredients', {
         .default(sql`(unixepoch() * 1000)`),
 })
 
-export const centralIngredientAliases = sqliteTable(
-    'central_ingredient_aliases',
+export const ingredientAliases = sqliteTable(
+    'ingredient_aliases',
     {
         id: text('id')
             .primaryKey()
             .$type<IngredientAliasId>()
             .$defaultFn(() => newIngredientAliasId()),
-        centralIngredientId: text('central_ingredient_id')
+        ingredientId: text('ingredient_id')
             .notNull()
             .$type<IngredientId>(),
         alias: text('alias').notNull(),
     },
     (table) => [
         foreignKey({
-            columns: [table.centralIngredientId],
-            foreignColumns: [centralIngredients.id],
+            columns: [table.ingredientId],
+            foreignColumns: [ingredients.id],
         }).onDelete('cascade'),
         uniqueIndex('central_ingredient_aliases_entry_alias_unique').on(
-            table.centralIngredientId,
+            table.ingredientId,
             sql`lower(${table.alias})`,
         ),
         index('central_ingredient_aliases_alias_idx').on(
@@ -123,14 +123,14 @@ export const centralIngredientAliases = sqliteTable(
     ],
 )
 
-export const centralIngredientCountUnits = sqliteTable(
-    'central_ingredient_count_units',
+export const ingredientCountUnits = sqliteTable(
+    'ingredient_count_units',
     {
         id: text('id')
             .primaryKey()
             .$type<IngredientCountUnitId>()
             .$defaultFn(() => newIngredientCountUnitId()),
-        centralIngredientId: text('central_ingredient_id')
+        ingredientId: text('ingredient_id')
             .notNull()
             .$type<IngredientId>(),
         unit: text('unit').notNull(),
@@ -138,11 +138,11 @@ export const centralIngredientCountUnits = sqliteTable(
     },
     (table) => [
         foreignKey({
-            columns: [table.centralIngredientId],
-            foreignColumns: [centralIngredients.id],
+            columns: [table.ingredientId],
+            foreignColumns: [ingredients.id],
         }).onDelete('cascade'),
         uniqueIndex('central_ingredient_count_units_entry_unit_unique').on(
-            table.centralIngredientId,
+            table.ingredientId,
             sql`lower(${table.unit})`,
         ),
     ],
@@ -227,9 +227,7 @@ export const recipeIngredients = sqliteTable(
         amount: real('amount'),
         unit: text('unit'),
         name: text('name').notNull(),
-        centralIngredientId: text(
-            'central_ingredient_id',
-        ).$type<IngredientId>(),
+        ingredientId: text('ingredient_id').$type<IngredientId>(),
     },
     (table) => [
         foreignKey({
@@ -237,8 +235,8 @@ export const recipeIngredients = sqliteTable(
             foreignColumns: [recipes.id],
         }).onDelete('cascade'),
         foreignKey({
-            columns: [table.centralIngredientId],
-            foreignColumns: [centralIngredients.id],
+            columns: [table.ingredientId],
+            foreignColumns: [ingredients.id],
         }).onDelete('set null'),
         uniqueIndex('recipe_ingredients_recipe_position_unique').on(
             table.recipeId,

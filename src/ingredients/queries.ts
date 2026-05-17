@@ -2,9 +2,9 @@ import { asc, eq, like, or, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import type { IngredientId } from '@/db/ids'
 import {
-    centralIngredientAliases,
-    centralIngredientCountUnits,
-    centralIngredients,
+    ingredientAliases,
+    ingredientCountUnits,
+    ingredients,
 } from '@/db/schema'
 
 export type IngredientListRow = {
@@ -22,39 +22,39 @@ export function listIngredients(search: string): IngredientListRow[] {
     const pattern = `%${trimmed.toLowerCase()}%`
     const baseQuery = db
         .select({
-            id: centralIngredients.id,
-            canonicalDe: centralIngredients.canonicalDe,
-            canonicalEn: centralIngredients.canonicalEn,
-            role: centralIngredients.role,
-            density: centralIngredients.density,
-            aliasCount: sql<number>`count(distinct ${centralIngredientAliases.id})`,
-            countUnitCount: sql<number>`count(distinct ${centralIngredientCountUnits.id})`,
+            id: ingredients.id,
+            canonicalDe: ingredients.canonicalDe,
+            canonicalEn: ingredients.canonicalEn,
+            role: ingredients.role,
+            density: ingredients.density,
+            aliasCount: sql<number>`count(distinct ${ingredientAliases.id})`,
+            countUnitCount: sql<number>`count(distinct ${ingredientCountUnits.id})`,
         })
-        .from(centralIngredients)
+        .from(ingredients)
         .leftJoin(
-            centralIngredientAliases,
+            ingredientAliases,
             eq(
-                centralIngredientAliases.centralIngredientId,
-                centralIngredients.id,
+                ingredientAliases.ingredientId,
+                ingredients.id,
             ),
         )
         .leftJoin(
-            centralIngredientCountUnits,
+            ingredientCountUnits,
             eq(
-                centralIngredientCountUnits.centralIngredientId,
-                centralIngredients.id,
+                ingredientCountUnits.ingredientId,
+                ingredients.id,
             ),
         )
-        .groupBy(centralIngredients.id)
+        .groupBy(ingredients.id)
 
     const query = trimmed
         ? baseQuery.where(
               or(
-                  like(sql`lower(${centralIngredients.canonicalDe})`, pattern),
-                  like(sql`lower(${centralIngredients.canonicalEn})`, pattern),
+                  like(sql`lower(${ingredients.canonicalDe})`, pattern),
+                  like(sql`lower(${ingredients.canonicalEn})`, pattern),
                   sql`EXISTS (
-                      SELECT 1 FROM ${centralIngredientAliases} a
-                      WHERE a.central_ingredient_id = ${centralIngredients.id}
+                      SELECT 1 FROM ${ingredientAliases} a
+                      WHERE a.central_ingredient_id = ${ingredients.id}
                       AND lower(a.alias) LIKE ${pattern}
                   )`,
               ),
@@ -63,8 +63,8 @@ export function listIngredients(search: string): IngredientListRow[] {
 
     return query
         .orderBy(
-            asc(centralIngredients.canonicalEn),
-            asc(centralIngredients.canonicalDe),
+            asc(ingredients.canonicalEn),
+            asc(ingredients.canonicalDe),
         )
         .all()
 }
@@ -83,27 +83,27 @@ export type IngredientDetail = {
 export function getIngredient(id: IngredientId): IngredientDetail | null {
     const row = db
         .select()
-        .from(centralIngredients)
-        .where(eq(centralIngredients.id, id))
+        .from(ingredients)
+        .where(eq(ingredients.id, id))
         .get()
     if (!row) {
         return null
     }
     const aliases = db
-        .select({ alias: centralIngredientAliases.alias })
-        .from(centralIngredientAliases)
-        .where(eq(centralIngredientAliases.centralIngredientId, id))
-        .orderBy(asc(centralIngredientAliases.alias))
+        .select({ alias: ingredientAliases.alias })
+        .from(ingredientAliases)
+        .where(eq(ingredientAliases.ingredientId, id))
+        .orderBy(asc(ingredientAliases.alias))
         .all()
         .map((r) => r.alias)
     const countUnits = db
         .select({
-            unit: centralIngredientCountUnits.unit,
-            gramsPerUnit: centralIngredientCountUnits.gramsPerUnit,
+            unit: ingredientCountUnits.unit,
+            gramsPerUnit: ingredientCountUnits.gramsPerUnit,
         })
-        .from(centralIngredientCountUnits)
-        .where(eq(centralIngredientCountUnits.centralIngredientId, id))
-        .orderBy(asc(centralIngredientCountUnits.unit))
+        .from(ingredientCountUnits)
+        .where(eq(ingredientCountUnits.ingredientId, id))
+        .orderBy(asc(ingredientCountUnits.unit))
         .all()
     return {
         id: row.id,

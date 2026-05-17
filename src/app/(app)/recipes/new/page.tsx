@@ -5,7 +5,7 @@ import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { DEFAULT_FORM_SERVINGS } from '@/recipes/constants'
 import {
-    listCentralIngredientsForPicker,
+    listIngredientsForPicker,
     listCuisines,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'
@@ -31,7 +31,7 @@ export default async function NewRecipePage() {
     const session = await requireSetupOrSession()
     const t = await getTranslations()
     const cuisines = listCuisines()
-    const centralIngredients = listCentralIngredientsForPicker()
+    const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(null)
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
@@ -42,7 +42,7 @@ export default async function NewRecipePage() {
                 <RecipeForm
                     initialValues={EMPTY}
                     cuisines={cuisines}
-                    centralIngredients={centralIngredients}
+                    ingredientOptions={ingredients}
                     componentCandidates={componentCandidates}
                     activeLanguage={session.user.language}
                     rolledUp={null}

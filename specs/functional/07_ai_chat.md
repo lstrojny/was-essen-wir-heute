@@ -94,11 +94,18 @@ See `specs/tech/02_llm.md` for the tool catalog. Tools are grouped:
 
 - **Read tools** (server-side, available on every page): catalog
   search and detail lookups, ratings.
-- **Rating-write tools** (server-side, scoped to the current user):
-  `set_my_rating`, `clear_my_rating`.
+- **Server-side write tools** (scoped to the current user, two-step
+  confirmation): `set_my_rating`, `clear_my_rating`, `update_recipe`,
+  `update_ingredient`, `delete_ingredient`. Each takes a
+  `confirmed: boolean` arg — the first call returns a *would-do*
+  summary, the chat renders it in plain text, and only after the
+  user explicitly approves does the model call again with
+  `confirmed: true` to perform the write.
 - **Form-patch tools** (client-side, available only on detail
   pages): `patch_recipe_form`, `patch_ingredient_form`. These run in
-  the browser against the open form's React state.
+  the browser against the open form's React state and rely on the
+  yellow change-highlight + manual Save as their confirmation step
+  (no `confirmed` arg needed).
 
 ## What got removed
 

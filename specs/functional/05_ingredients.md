@@ -55,7 +55,7 @@ list, ingredient-based search, etc.).
 ### Reverse lookup: recipes using an ingredient
 
 The ingredient management surface shows, for each entry, the list of
-recipes that link to it (via `recipe_ingredients.central_ingredient_id`).
+recipes that link to it (via `recipe_ingredients.ingredient_id`).
 The list shows the recipe's display title in the active language
 (with the usual fallback marker) and cuisine, and links to the recipe.
 Only **direct** uses are listed — recipes that include this ingredient

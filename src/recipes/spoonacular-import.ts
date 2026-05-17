@@ -28,7 +28,7 @@ export function spoonacularToFormInitial(
                     : String(Math.round(amount * 1000) / 1000),
             unit: (ing.unit ?? '').toLowerCase(),
             name: ing.name,
-            centralIngredientId: null,
+            ingredientId: null,
         }
     })
     const steps = (detail.analyzedInstructions ?? []).flatMap((block) =>

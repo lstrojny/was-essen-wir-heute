@@ -7,9 +7,9 @@ import { requireSetupOrSession } from '@/auth/guards'
 import { db } from '@/db'
 import { type IngredientId, parseIngredientId } from '@/db/ids'
 import {
-    centralIngredientAliases,
-    centralIngredientCountUnits,
-    centralIngredients,
+    ingredientAliases,
+    ingredientCountUnits,
+    ingredients,
 } from '@/db/schema'
 
 type FieldsErrorKey =
@@ -163,7 +163,7 @@ export async function createIngredientAction(
     let newId: IngredientId | undefined
     db.transaction(() => {
         const inserted = db
-            .insert(centralIngredients)
+            .insert(ingredients)
             .values({
                 canonicalDe: fields.canonicalDe,
                 canonicalEn: fields.canonicalEn,
@@ -171,25 +171,25 @@ export async function createIngredientAction(
                 density: fields.density,
                 notes: fields.notes,
             })
-            .returning({ id: centralIngredients.id })
+            .returning({ id: ingredients.id })
             .get()
         const id = inserted.id
         newId = id
         if (fields.aliases.length) {
-            db.insert(centralIngredientAliases)
+            db.insert(ingredientAliases)
                 .values(
                     fields.aliases.map((alias) => ({
-                        centralIngredientId: id,
+                        ingredientId: id,
                         alias,
                     })),
                 )
                 .run()
         }
         if (fields.countUnits.length) {
-            db.insert(centralIngredientCountUnits)
+            db.insert(ingredientCountUnits)
                 .values(
                     fields.countUnits.map((cu) => ({
-                        centralIngredientId: id,
+                        ingredientId: id,
                         unit: cu.unit,
                         gramsPerUnit: cu.gramsPerUnit,
                     })),
@@ -219,15 +219,15 @@ export async function updateIngredientAction(
         return { error: tErr(fields) }
     }
     const existing = db
-        .select({ id: centralIngredients.id })
-        .from(centralIngredients)
-        .where(eq(centralIngredients.id, id))
+        .select({ id: ingredients.id })
+        .from(ingredients)
+        .where(eq(ingredients.id, id))
         .get()
     if (!existing) {
         return { error: tErr('ingredientNotFound') }
     }
     db.transaction(() => {
-        db.update(centralIngredients)
+        db.update(ingredients)
             .set({
                 canonicalDe: fields.canonicalDe,
                 canonicalEn: fields.canonicalEn,
@@ -236,29 +236,29 @@ export async function updateIngredientAction(
                 notes: fields.notes,
                 updatedAt: new Date(),
             })
-            .where(eq(centralIngredients.id, id))
+            .where(eq(ingredients.id, id))
             .run()
-        db.delete(centralIngredientAliases)
-            .where(eq(centralIngredientAliases.centralIngredientId, id))
+        db.delete(ingredientAliases)
+            .where(eq(ingredientAliases.ingredientId, id))
             .run()
         if (fields.aliases.length) {
-            db.insert(centralIngredientAliases)
+            db.insert(ingredientAliases)
                 .values(
                     fields.aliases.map((alias) => ({
-                        centralIngredientId: id,
+                        ingredientId: id,
                         alias,
                     })),
                 )
                 .run()
         }
-        db.delete(centralIngredientCountUnits)
-            .where(eq(centralIngredientCountUnits.centralIngredientId, id))
+        db.delete(ingredientCountUnits)
+            .where(eq(ingredientCountUnits.ingredientId, id))
             .run()
         if (fields.countUnits.length) {
-            db.insert(centralIngredientCountUnits)
+            db.insert(ingredientCountUnits)
                 .values(
                     fields.countUnits.map((cu) => ({
-                        centralIngredientId: id,
+                        ingredientId: id,
                         unit: cu.unit,
                         gramsPerUnit: cu.gramsPerUnit,
                     })),
@@ -276,6 +276,6 @@ export async function deleteIngredientAction(data: FormData): Promise<void> {
     if (!id) {
         redirect('/ingredients')
     }
-    db.delete(centralIngredients).where(eq(centralIngredients.id, id)).run()
+    db.delete(ingredients).where(eq(ingredients.id, id)).run()
     redirect('/ingredients')
 }

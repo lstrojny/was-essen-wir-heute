@@ -8,7 +8,7 @@ import { synthesizedToFormInitial } from '@/app/(app)/recipes/recipe-form-conver
 import { requireSetupOrSession } from '@/auth/guards'
 import { enrichSpoonacularImport } from '@/llm/recipe-synthesis'
 import {
-    listCentralIngredientsForPicker,
+    listIngredientsForPicker,
     listCuisines,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'
@@ -76,7 +76,7 @@ export default async function SpoonacularPreviewPage({
     }
 
     const cuisines = listCuisines()
-    const centralIngredients = listCentralIngredientsForPicker()
+    const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(null)
 
     let initialValues = spoonacularToFormInitial(detail)
@@ -105,7 +105,7 @@ export default async function SpoonacularPreviewPage({
                 <RecipeForm
                     initialValues={initialValues}
                     cuisines={cuisines}
-                    centralIngredients={centralIngredients}
+                    ingredientOptions={ingredients}
                     componentCandidates={componentCandidates}
                     activeLanguage={session.user.language}
                     rolledUp={null}

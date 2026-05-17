@@ -81,7 +81,8 @@ Read tools:
   central ingredient.
 - `get_recipe_ratings` — aggregate plus per-user breakdown for a recipe.
 
-Write tools (scoped to the session user):
+Write tools (scoped to the session user, two-step confirmation —
+see *Confirmation pattern*):
 
 - `set_my_rating(recipe_id, score)` — sets/updates the current user's
   rating for a recipe.
@@ -106,11 +107,47 @@ These are defined with the AI SDK's tool API but without an
 form state. Patches never persist on their own — the user must click
 Save.
 
-### Phase 3 — recipe + ingredient CRUD via tools (deferred)
+### Phase 3 — server-side update / delete tools (built)
 
-Direct database creates / updates / deletes from chat (without going
-through the open form) are deferred. The form-patch flow covers the
-detail-page editing case; explicit Save buttons cover persistence.
+Direct database writes from chat, callable from any page (not only
+the open form):
+
+- `update_recipe(recipe_id, patch, confirmed)` — sparse patch over
+  scalars (titles, notes, cuisine, times, complete-meal flag), full-
+  replacement arrays for steps and components, and (optional) full-
+  replacement ingredients list with `intended_servings` for scale
+  conversion. Omitted fields are left unchanged. Component cycles are
+  rejected with a structured error. Reuses the same DB write path the
+  form action uses (`writeRecipeFromPatch` in
+  `src/recipes/actions.ts`).
+- `update_ingredient(ingredient_id, patch, confirmed)` — sparse patch
+  over canonical names, role, density, notes, with full-replacement
+  arrays for aliases and count units.
+- `delete_ingredient(ingredient_id, confirmed)` — deletes the
+  ingredient. Aliases and count units cascade; `recipe_ingredients`
+  rows survive with `ingredient_id` set to NULL.
+
+### Confirmation pattern
+
+Every **database write** tool takes a `confirmed: boolean` parameter
+(default `false`). When `confirmed` is `false` the tool **does not
+write**; it returns a structured `{ needs_confirmation: true,
+summary: ... }` payload describing what the call *would* do (e.g.
+"would change cuisine from italian to thai, set active time from 20
+to 25"). The model is instructed to relay the summary in plain text,
+wait for the user's explicit approval ("yes", "ok", "do it"), and
+only then call the same tool again with `confirmed: true`. If the
+user declines, the model does not call the tool again.
+
+This pattern applies to:
+
+- `set_my_rating`, `clear_my_rating`
+- `update_recipe`, `update_ingredient`, `delete_ingredient`
+
+It deliberately does **not** apply to the client-side form-patch
+tools (`patch_recipe_form`, `patch_ingredient_form`): those don't
+persist on their own and the yellow change-highlight on the open form
+plus the explicit Save button already act as the confirmation step.
 
 ### Tool-result rendering
 

@@ -14,7 +14,7 @@ import {
     type RecipeId,
 } from '@/db/ids'
 import {
-    centralIngredients,
+    ingredients,
     recipeComponents,
     recipeIngredients,
     recipeSteps,
@@ -22,7 +22,7 @@ import {
 } from '@/db/schema'
 import { resolveLocale } from '@/i18n/locale'
 import {
-    findCentralIngredientByName,
+    findIngredientByName,
     findDirectChildrenForMany,
     findRecipesReferencing,
 } from './queries'
@@ -86,7 +86,7 @@ type ParsedIngredient = {
     amount: number | null
     unit: string | null
     name: string
-    centralIngredientId: IngredientId | null
+    ingredientId: IngredientId | null
 }
 
 function parseIngredients(data: FormData): ParsedIngredient[] | FieldsErrorKey {
@@ -118,13 +118,13 @@ function parseIngredients(data: FormData): ParsedIngredient[] | FieldsErrorKey {
         if (amount === 'invalid') {
             return 'ingredientAmountInvalid'
         }
-        const centralIngredientId =
+        const ingredientId =
             centralRaw === '' ? null : parseIngredientId(centralRaw)
         out.push({
             name,
             amount,
             unit: unit === '' ? null : unit,
-            centralIngredientId,
+            ingredientId,
         })
     }
     return out
@@ -250,24 +250,24 @@ function wouldCreateCycle(parentId: RecipeId, childId: RecipeId): boolean {
     return false
 }
 
-function resolveOrCreateCentralIngredients(
-    ingredients: ParsedIngredient[],
+function resolveOrCreateIngredients(
+    rows: ParsedIngredient[],
     activeLanguage: 'de' | 'en',
 ): ParsedIngredient[] {
-    return ingredients.map((ing) => {
-        if (ing.centralIngredientId) {
+    return rows.map((ing) => {
+        if (ing.ingredientId) {
             return ing
         }
         const trimmedName = ing.name.trim()
         if (!trimmedName) {
             return ing
         }
-        const existing = findCentralIngredientByName(trimmedName)
+        const existing = findIngredientByName(trimmedName)
         if (existing) {
-            return { ...ing, centralIngredientId: existing }
+            return { ...ing, ingredientId: existing }
         }
         const inserted = db
-            .insert(centralIngredients)
+            .insert(ingredients)
             .values({
                 canonicalDe: activeLanguage === 'de' ? trimmedName : null,
                 canonicalEn: activeLanguage === 'en' ? trimmedName : null,
@@ -275,9 +275,9 @@ function resolveOrCreateCentralIngredients(
                 density: null,
                 notes: null,
             })
-            .returning({ id: centralIngredients.id })
+            .returning({ id: ingredients.id })
             .get()
-        return { ...ing, centralIngredientId: inserted.id }
+        return { ...ing, ingredientId: inserted.id }
     })
 }
 
@@ -304,7 +304,7 @@ function writeChildRows(
                     amount: ing.amount,
                     unit: ing.unit,
                     name: ing.name,
-                    centralIngredientId: ing.centralIngredientId,
+                    ingredientId: ing.ingredientId,
                 })),
             )
             .run()
@@ -359,7 +359,7 @@ export async function createRecipeAction(
     const activeLanguage = await resolveLocale()
     let newId: RecipeId | undefined
     db.transaction(() => {
-        fields.ingredients = resolveOrCreateCentralIngredients(
+        fields.ingredients = resolveOrCreateIngredients(
             fields.ingredients,
             activeLanguage,
         )
@@ -422,7 +422,7 @@ export async function updateRecipeAction(
     }
     const activeLanguage = await resolveLocale()
     db.transaction(() => {
-        fields.ingredients = resolveOrCreateCentralIngredients(
+        fields.ingredients = resolveOrCreateIngredients(
             fields.ingredients,
             activeLanguage,
         )
@@ -498,7 +498,7 @@ export async function copyRecipeAction(data: FormData): Promise<void> {
                         amount: row.amount,
                         unit: row.unit,
                         name: row.name,
-                        centralIngredientId: row.centralIngredientId,
+                        ingredientId: row.ingredientId,
                     })),
                 )
                 .run()

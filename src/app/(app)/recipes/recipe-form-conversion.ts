@@ -21,7 +21,7 @@ export function synthesizedToFormInitial(
             amount: ing.amount === null ? '' : String(ing.amount),
             unit: ing.unit ?? '',
             name: ing.name,
-            centralIngredientId: null,
+            ingredientId: null,
         })),
         steps: recipe.steps.map((step) => ({
             textDe: step.textDe ?? '',

@@ -10,8 +10,8 @@ import type {
     UserId,
 } from '@/db/ids'
 import {
-    centralIngredientAliases,
-    centralIngredients,
+    ingredientAliases,
+    ingredients,
     cuisines,
     recipeComponents,
     recipeIngredients,
@@ -220,7 +220,7 @@ export type RecipeIngredientRow = {
     amount: number | null
     unit: string | null
     name: string
-    centralIngredientId: IngredientId | null
+    ingredientId: IngredientId | null
 }
 
 export type RecipeStepRow = {
@@ -267,7 +267,7 @@ export function getRecipe(id: RecipeId): RecipeDetail | null {
             amount: recipeIngredients.amount,
             unit: recipeIngredients.unit,
             name: recipeIngredients.name,
-            centralIngredientId: recipeIngredients.centralIngredientId,
+            ingredientId: recipeIngredients.ingredientId,
         })
         .from(recipeIngredients)
         .where(eq(recipeIngredients.recipeId, id))
@@ -429,67 +429,81 @@ export function findRecipesUsingIngredient(
             recipeIngredients,
             eq(recipeIngredients.recipeId, recipes.id),
         )
-        .where(eq(recipeIngredients.centralIngredientId, ingredientId))
+        .where(eq(recipeIngredients.ingredientId, ingredientId))
         .orderBy(asc(recipes.titleEn), asc(recipes.titleDe))
         .all()
 }
 
-export function findCentralIngredientByName(name: string): IngredientId | null {
-    const lowered = name.trim().toLowerCase()
+export function findIngredientByName(name: string): IngredientId | null {
+    const lowered = name.trim().toLocaleLowerCase()
     if (!lowered) return null
-    const canonicalMatch = db
-        .select({ id: centralIngredients.id })
-        .from(centralIngredients)
-        .where(
-            or(
-                eq(sql`lower(${centralIngredients.canonicalDe})`, lowered),
-                eq(sql`lower(${centralIngredients.canonicalEn})`, lowered),
-            ),
-        )
-        .get()
-    if (canonicalMatch) {
-        return canonicalMatch.id
+    // SQLite's built-in lower() is ASCII-only, so German umlauts and other
+    // non-ASCII characters wouldn't fold correctly via a SQL comparison.
+    // We load the small catalog and match in JS, which uses Unicode-aware
+    // case folding. The catalog is family-sized; this is fine.
+    const canonicalRows = db
+        .select({
+            id: ingredients.id,
+            canonicalDe: ingredients.canonicalDe,
+            canonicalEn: ingredients.canonicalEn,
+        })
+        .from(ingredients)
+        .all()
+    for (const row of canonicalRows) {
+        if (
+            row.canonicalDe?.trim().toLocaleLowerCase() === lowered ||
+            row.canonicalEn?.trim().toLocaleLowerCase() === lowered
+        ) {
+            return row.id
+        }
     }
-    const aliasMatch = db
-        .select({ id: centralIngredientAliases.centralIngredientId })
-        .from(centralIngredientAliases)
-        .where(eq(sql`lower(${centralIngredientAliases.alias})`, lowered))
-        .get()
-    return aliasMatch?.id ?? null
+    const aliasRows = db
+        .select({
+            id: ingredientAliases.ingredientId,
+            alias: ingredientAliases.alias,
+        })
+        .from(ingredientAliases)
+        .all()
+    for (const row of aliasRows) {
+        if (row.alias.trim().toLocaleLowerCase() === lowered) {
+            return row.id
+        }
+    }
+    return null
 }
 
-export type CentralIngredientOption = {
+export type IngredientOption = {
     id: IngredientId
     canonicalDe: string | null
     canonicalEn: string | null
     aliases: string[]
 }
 
-export function listCentralIngredientsForPicker(): CentralIngredientOption[] {
+export function listIngredientsForPicker(): IngredientOption[] {
     const rows = db
         .select({
-            id: centralIngredients.id,
-            canonicalDe: centralIngredients.canonicalDe,
-            canonicalEn: centralIngredients.canonicalEn,
+            id: ingredients.id,
+            canonicalDe: ingredients.canonicalDe,
+            canonicalEn: ingredients.canonicalEn,
         })
-        .from(centralIngredients)
+        .from(ingredients)
         .orderBy(
-            asc(centralIngredients.canonicalEn),
-            asc(centralIngredients.canonicalDe),
+            asc(ingredients.canonicalEn),
+            asc(ingredients.canonicalDe),
         )
         .all()
     const aliasRows = db
         .select({
-            centralIngredientId: centralIngredientAliases.centralIngredientId,
-            alias: centralIngredientAliases.alias,
+            ingredientId: ingredientAliases.ingredientId,
+            alias: ingredientAliases.alias,
         })
-        .from(centralIngredientAliases)
+        .from(ingredientAliases)
         .all()
     const aliasMap = new Map<IngredientId, string[]>()
     for (const a of aliasRows) {
-        const list = aliasMap.get(a.centralIngredientId) ?? []
+        const list = aliasMap.get(a.ingredientId) ?? []
         list.push(a.alias)
-        aliasMap.set(a.centralIngredientId, list)
+        aliasMap.set(a.ingredientId, list)
     }
     return rows.map((r) => ({
         ...r,

@@ -5,13 +5,27 @@ import type { SessionUser } from '@/auth/session'
 import { db } from '@/db'
 import {
     type CuisineKey,
+    type IngredientId,
     parseCuisineKey,
     parseIngredientId,
     parseRecipeId,
+    type RecipeId,
 } from '@/db/ids'
-import { recipeRatings, recipes } from '@/db/schema'
+import {
+    ingredientAliases,
+    ingredientCountUnits,
+    ingredients as ingredientsTable,
+    recipeComponents,
+    recipeIngredients,
+    recipeRatings,
+    recipes,
+    recipeSteps,
+} from '@/db/schema'
 import { getIngredient, listIngredients } from '@/ingredients/queries'
 import {
+    findDirectChildrenForMany,
+    findIngredientByName,
+    findRecipesReferencing,
     findRecipesUsingIngredient,
     getMyRatingForRecipe,
     getRatingAggregateForRecipe,
@@ -139,7 +153,7 @@ export function buildChatTools({
                         amountPerServing: ing.amount,
                         unit: ing.unit,
                         name: ing.name,
-                        centralIngredientId: ing.centralIngredientId,
+                        ingredientId: ing.ingredientId,
                     })),
                     steps: detail.steps.map((step) => ({
                         textDe: step.textDe,

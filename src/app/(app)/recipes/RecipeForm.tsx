@@ -26,7 +26,7 @@ import {
     updateRecipeAction,
 } from '@/recipes/actions'
 import type {
-    CentralIngredientOption,
+    IngredientOption,
     CuisineRow,
     RecipePickerRow,
 } from '@/recipes/queries'
@@ -60,7 +60,7 @@ export type RecipeFormIngredient = {
     amount: string
     unit: string
     name: string
-    centralIngredientId: IngredientId | null
+    ingredientId: IngredientId | null
 }
 
 export type RecipeFormStep = {
@@ -102,7 +102,7 @@ type PickerOption = {
 export function RecipeForm({
     initialValues,
     cuisines,
-    centralIngredients,
+    ingredientOptions,
     componentCandidates,
     activeLanguage,
     rolledUp,
@@ -111,7 +111,7 @@ export function RecipeForm({
 }: {
     initialValues: RecipeFormInitial
     cuisines: CuisineRow[]
-    centralIngredients: CentralIngredientOption[]
+    ingredientOptions: IngredientOption[]
     componentCandidates: RecipePickerRow[]
     activeLanguage: 'de' | 'en'
     rolledUp: RolledUpRecipe | null
@@ -276,7 +276,7 @@ export function RecipeForm({
                               ),
                     unit: ing.unit ?? '',
                     name: ing.name,
-                    centralIngredientId: null,
+                    ingredientId: null,
                 }))
                 setIngredients(nextIngredients)
             }
@@ -411,7 +411,7 @@ export function RecipeForm({
     }
 
     const pickerOptions = useMemo<PickerOption[]>(() => {
-        return centralIngredients.map((row) => {
+        return ingredientOptions.map((row) => {
             const primary =
                 activeLanguage === 'de' ? row.canonicalDe : row.canonicalEn
             const secondary =
@@ -428,7 +428,7 @@ export function RecipeForm({
                 haystack,
             }
         })
-    }, [centralIngredients, activeLanguage, t])
+    }, [ingredientOptions, activeLanguage, t])
 
     function updateIngredient<K extends keyof RecipeFormIngredient>(
         index: number,
@@ -446,7 +446,7 @@ export function RecipeForm({
     function addIngredient() {
         setIngredients([
             ...ingredients,
-            { amount: '', unit: '', name: '', centralIngredientId: null },
+            { amount: '', unit: '', name: '', ingredientId: null },
         ])
     }
 
@@ -859,9 +859,9 @@ export function RecipeForm({
                             value={formServings}
                         />
                         {ingredients.map((row, index) => {
-                            const selectedOption = row.centralIngredientId
+                            const selectedOption = row.ingredientId
                                 ? (pickerOptions.find(
-                                      (o) => o.id === row.centralIngredientId,
+                                      (o) => o.id === row.ingredientId,
                                   ) ?? null)
                                 : null
                             const isChanged =
@@ -925,7 +925,7 @@ export function RecipeForm({
                                                 )
                                                 updateIngredient(
                                                     index,
-                                                    'centralIngredientId',
+                                                    'ingredientId',
                                                     null,
                                                 )
                                             } else if (
@@ -938,7 +938,7 @@ export function RecipeForm({
                                                 )
                                                 updateIngredient(
                                                     index,
-                                                    'centralIngredientId',
+                                                    'ingredientId',
                                                     null,
                                                 )
                                             } else {
@@ -949,7 +949,7 @@ export function RecipeForm({
                                                 )
                                                 updateIngredient(
                                                     index,
-                                                    'centralIngredientId',
+                                                    'ingredientId',
                                                     value.id,
                                                 )
                                             }
@@ -961,10 +961,10 @@ export function RecipeForm({
                                                     'name',
                                                     value,
                                                 )
-                                                if (row.centralIngredientId) {
+                                                if (row.ingredientId) {
                                                     updateIngredient(
                                                         index,
-                                                        'centralIngredientId',
+                                                        'ingredientId',
                                                         null,
                                                     )
                                                 }
@@ -1024,7 +1024,7 @@ export function RecipeForm({
                                     <input
                                         type="hidden"
                                         name="ingredientCentralId"
-                                        value={row.centralIngredientId ?? ''}
+                                        value={row.ingredientId ?? ''}
                                     />
                                     <IconButton
                                         onClick={() => removeIngredient(index)}

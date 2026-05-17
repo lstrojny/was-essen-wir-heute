@@ -12,7 +12,7 @@ import {
     getRatingAggregateForRecipe,
     getRecipe,
     getRolledUpRecipe,
-    listCentralIngredientsForPicker,
+    listIngredientsForPicker,
     listCuisines,
     listRatingsForRecipe,
     listRecipesForComponentPicker,
@@ -43,7 +43,7 @@ export default async function EditRecipePage({
     const title = primary ?? fallback ?? t('recipes.unnamed')
 
     const cuisines = listCuisines()
-    const centralIngredients = listCentralIngredientsForPicker()
+    const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(recipe.id)
     const candidateTotals = new Map(
         componentCandidates.map((c) => [
@@ -78,7 +78,7 @@ export default async function EditRecipePage({
                       ),
             unit: ing.unit ?? '',
             name: ing.name,
-            centralIngredientId: ing.centralIngredientId,
+            ingredientId: ing.ingredientId,
         })),
         steps: recipe.steps.map((step) => ({
             textDe: step.textDe ?? '',
@@ -159,7 +159,7 @@ export default async function EditRecipePage({
                 <RecipeForm
                     initialValues={initialValues}
                     cuisines={cuisines}
-                    centralIngredients={centralIngredients}
+                    ingredientOptions={ingredients}
                     componentCandidates={componentCandidates}
                     activeLanguage={session.user.language}
                     rolledUp={rolledUp}
