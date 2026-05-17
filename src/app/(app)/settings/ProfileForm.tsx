@@ -8,8 +8,9 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useTranslations } from 'next-intl'
-import { useActionState } from 'react'
+import { useActionState, useEffect, useState } from 'react'
 import { type AuthFormState, updateOwnProfileAction } from '@/auth/actions'
+import { type Locale, SUPPORTED_LOCALES } from '@/i18n/locale'
 
 const initial: AuthFormState = {}
 
@@ -18,13 +19,17 @@ export function ProfileForm({
     defaultLanguage,
 }: {
     defaultDisplayName: string
-    defaultLanguage: 'de' | 'en'
+    defaultLanguage: Locale
 }) {
     const t = useTranslations()
     const [state, formAction, pending] = useActionState(
         updateOwnProfileAction,
         initial,
     )
+    const [language, setLanguage] = useState(defaultLanguage)
+    useEffect(() => {
+        setLanguage(defaultLanguage)
+    }, [defaultLanguage])
     return (
         <Paper sx={{ p: 3 }} variant="outlined">
             <Stack spacing={2} component="form" action={formAction}>
@@ -47,11 +52,15 @@ export function ProfileForm({
                     name="language"
                     label={t('settings.profile.language')}
                     select
-                    defaultValue={defaultLanguage}
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value as Locale)}
                     required
                 >
-                    <MenuItem value="de">{t('languages.de')}</MenuItem>
-                    <MenuItem value="en">{t('languages.en')}</MenuItem>
+                    {SUPPORTED_LOCALES.map((locale) => (
+                        <MenuItem key={locale} value={locale}>
+                            {t(`languages.${locale}`)}
+                        </MenuItem>
+                    ))}
                 </TextField>
                 <Button type="submit" variant="contained" disabled={pending}>
                     {pending
