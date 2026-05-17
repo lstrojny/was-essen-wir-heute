@@ -317,7 +317,9 @@
                 "unit": "Einheit",
                 "name": "Name",
                 "remove": "Entfernen",
-                "add": "Zutat hinzufügen"
+                "add": "Zutat hinzufügen",
+                "matchExisting": "Erkannt: {name}",
+                "matchNew": "Wird neu angelegt"
             },
             "components": {
                 "title": "Komponenten",

@@ -317,7 +317,9 @@
                 "unit": "Unit",
                 "name": "Name",
                 "remove": "Remove",
-                "add": "Add ingredient"
+                "add": "Add ingredient",
+                "matchExisting": "Matches: {name}",
+                "matchNew": "Will be created"
             },
             "components": {
                 "title": "Components",

@@ -13,6 +13,12 @@ config detail behind a uniform call shape.
   `@ai-sdk/openai` with a custom `baseURL`. LiteLLM exposes an
   OpenAI-compatible API; for the app, every model — including Anthropic
   Claude — is reached through that one adapter.
+- The adapter is invoked via `litellm.chat(model)` (Chat Completions
+  endpoint), not the default `litellm(model)` which targets the newer
+  OpenAI Responses API. LiteLLM proxies Chat Completions faithfully;
+  Responses-API parity is not guaranteed, and stream chunks come back
+  Chat-shaped (`chatcmpl-*` ids), which the Responses adapter
+  mis-parses.
 - Configuration (read from env at startup):
   - `LITELLM_BASE_URL` — the proxy's base URL (e.g.
     `https://litellm.internal/v1`).

@@ -59,6 +59,14 @@ Unlinked ingredients display correctly but are ignored for main-ingredient
 derivation and for any feature that depends on the catalog (future shopping
 list, ingredient-based search, etc.).
 
+The form's ingredient rows show a **live match indicator** next to each
+row: whether the current free-text name would resolve to an existing
+central entry on save (and which one), or whether a new entry would be
+created. The indicator uses the same fold-based matching that runs at
+save time, so the preview is faithful. It applies to every form usage
+(manual create, edit, Spoonacular import, AI-chat import) — anywhere
+the same `RecipeForm` is shown.
+
 ### Reverse lookup: recipes using an ingredient
 
 The ingredient management surface shows, for each entry, the list of

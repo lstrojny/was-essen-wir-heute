@@ -7,6 +7,7 @@ import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
+import Chip from '@mui/material/Chip'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import IconButton from '@mui/material/IconButton'
 import MenuItem from '@mui/material/MenuItem'
@@ -37,6 +38,7 @@ import {
     type UnitCategory,
     type UnitOption,
 } from '@/recipes/units'
+import { foldForMatch } from '@/ingredients/name-match'
 import {
     type RecipeFormPatch,
     type RecipeFormSnapshot,
@@ -417,10 +419,11 @@ export function RecipeForm({
             const secondary =
                 activeLanguage === 'de' ? row.canonicalEn : row.canonicalDe
             const label = primary ?? secondary ?? t('ingredients.unnamed')
-            const haystack = [primary, secondary, ...row.aliases]
-                .filter((s): s is string => Boolean(s))
-                .join(' ')
-                .toLowerCase()
+            const haystack = foldForMatch(
+                [primary, secondary, ...row.aliases]
+                    .filter((s): s is string => Boolean(s))
+                    .join(' '),
+            )
             return {
                 id: row.id,
                 label,
@@ -428,6 +431,32 @@ export function RecipeForm({
                 haystack,
             }
         })
+    }, [ingredientOptions, activeLanguage, t])
+
+    // Folded-name → existing-entry index. Mirrors the auto-link-on-save logic
+    // (see findIngredientByName in src/recipes/queries.ts) so the indicator
+    // shows the same match the server would compute at save time.
+    const matchIndex = useMemo(() => {
+        const map = new Map<string, { id: IngredientId; label: string }>()
+        for (const row of ingredientOptions) {
+            const display =
+                activeLanguage === 'de'
+                    ? (row.canonicalDe ?? row.canonicalEn)
+                    : (row.canonicalEn ?? row.canonicalDe)
+            const label = display ?? t('ingredients.unnamed')
+            for (const key of [
+                row.canonicalDe,
+                row.canonicalEn,
+                ...row.aliases,
+            ]) {
+                if (!key) continue
+                const folded = foldForMatch(key)
+                if (folded && !map.has(folded)) {
+                    map.set(folded, { id: row.id, label })
+                }
+            }
+        }
+        return map
     }, [ingredientOptions, activeLanguage, t])
 
     function updateIngredient<K extends keyof RecipeFormIngredient>(
@@ -866,6 +895,16 @@ export function RecipeForm({
                                 : null
                             const isChanged =
                                 changedFields.ingredients.has(index)
+                            const trimmedName = row.name.trim()
+                            const matchedExisting = row.ingredientId
+                                ? (pickerOptions.find(
+                                      (o) => o.id === row.ingredientId,
+                                  ) ?? null)
+                                : trimmedName
+                                  ? (matchIndex.get(
+                                        foldForMatch(trimmedName),
+                                    ) ?? null)
+                                  : null
                             return (
                                 <Box
                                     // biome-ignore lint/suspicious/noArrayIndexKey: row identity is positional
@@ -983,9 +1022,7 @@ export function RecipeForm({
                                             options,
                                             { inputValue },
                                         ) => {
-                                            const q = inputValue
-                                                .trim()
-                                                .toLowerCase()
+                                            const q = foldForMatch(inputValue)
                                             if (!q) return options
                                             return options.filter((o) =>
                                                 o.haystack.includes(q),
@@ -1034,6 +1071,34 @@ export function RecipeForm({
                                     >
                                         <DeleteIcon />
                                     </IconButton>
+                                    {trimmedName ? (
+                                        <Chip
+                                            size="small"
+                                            variant="outlined"
+                                            color={
+                                                matchedExisting
+                                                    ? 'success'
+                                                    : 'default'
+                                            }
+                                            label={
+                                                matchedExisting
+                                                    ? t(
+                                                          'recipes.form.ingredients.matchExisting',
+                                                          {
+                                                              name: matchedExisting.label,
+                                                          },
+                                                      )
+                                                    : t(
+                                                          'recipes.form.ingredients.matchNew',
+                                                      )
+                                            }
+                                            sx={{
+                                                flexBasis: '100%',
+                                                alignSelf: 'flex-start',
+                                                width: 'fit-content',
+                                            }}
+                                        />
+                                    ) : null}
                                 </Box>
                             )
                         })}

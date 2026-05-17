@@ -69,11 +69,12 @@ a single LLM enrichment call. Enrichment is responsible for:
   on its own (see `01_recipes.md`).
 - **Unit normalisation**: convert Spoonacular's unit strings ("cups",
   "Tablespoons") to the controlled set (`cup`, `tbsp`, …).
-- **Ingredient-list matching** (deferred): the spec also calls for
-  per-row matches against the central ingredient list at this point.
-  v1 leaves the rows unlinked and relies on the auto-link-or-create on
-  save (see `05_ingredients.md`) instead. Revisit when match quality
-  warrants it.
+- **Ingredient-list matching**: enrichment leaves the rows unlinked
+  (no LLM-proposed ranking yet — deferred). The preview surfaces a
+  per-row indicator showing whether the free-text name would resolve
+  to an existing central entry on save, using the same fold-based
+  algorithm as auto-link-on-save (see `05_ingredients.md`). The user
+  can adjust the name or pick an explicit match before saving.
 
 All enrichment outputs are **suggestions**. The preview surfaces them as
 pre-filled but clearly editable so the user can verify each one.

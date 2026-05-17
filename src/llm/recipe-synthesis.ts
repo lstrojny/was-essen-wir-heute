@@ -167,7 +167,7 @@ export async function synthesizeRecipe(
     input: RecipeSynthesisInput,
 ): Promise<SynthesizedRecipe> {
     const { object } = await generateObject({
-        model: litellm(DEFAULT_MODEL),
+        model: litellm.chat(DEFAULT_MODEL),
         schema: recipeSchema,
         system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
         prompt: buildPrompt(input),
@@ -246,7 +246,7 @@ export async function enrichSpoonacularImport(input: {
         'Produce the fully enriched bilingual recipe in the required schema. Apply all the rules from the system prompt: translation, cuisine mapping, wait-time extraction, ingredient name conventions, complete-meal flag, unit normalisation.',
     ].join('\n')
     const { object } = await generateObject({
-        model: litellm(DEFAULT_MODEL),
+        model: litellm.chat(DEFAULT_MODEL),
         schema: recipeSchema,
         system: buildEnrichmentSystemPrompt(
             input.cuisineKeys,
@@ -434,7 +434,7 @@ export function chatAboutRecipe(input: ChatTextInput) {
         ...(showFormPatchTools ? DETAIL_PAGE_CLIENT_TOOL_DEFS : {}),
     }
     return streamText({
-        model: litellm(DEFAULT_MODEL),
+        model: litellm.chat(DEFAULT_MODEL),
         system: buildChatSystemPrompt(input.activeLanguage, input.pageContext),
         messages: input.messages,
         abortSignal: input.abortSignal,
@@ -455,7 +455,7 @@ export async function synthesizeRecipeFromMessages(input: {
             'Based on our conversation, emit the final structured recipe now. Apply every rule from the system prompt: both-language titles/notes/steps, ingredient names in my active language, plural form for countable nouns, no qualifiers, canonical units, normalised wait vs active time, intendedServings reflecting our conversation.',
     }
     const { object } = await generateObject({
-        model: litellm(DEFAULT_MODEL),
+        model: litellm.chat(DEFAULT_MODEL),
         schema: recipeSchema,
         system: buildSystemPrompt(input.cuisineKeys, input.activeLanguage),
         messages: [...input.messages, finalInstruction],
