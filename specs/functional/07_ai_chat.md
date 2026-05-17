@@ -83,9 +83,17 @@ transcript between the model's text turns. They are not free-text
 buttons the model invents — each comes from a registered tool that
 returns an action descriptor. Initial set:
 
-- **"Save as new recipe"** — only on `recipes-list`. Runs
-  `synthesizeRecipeFromMessages` against the current transcript and
-  routes to the new-recipe preview.
+- **Open the "new recipe" form pre-filled** — implemented via the
+  `open_new_recipe_form` client tool, available from any page. When the
+  conversation has converged on a recipe the user wants to add, the
+  model calls the tool with the structured recipe. The chat sidebar
+  stashes the draft under a freshly generated id in `sessionStorage`
+  (key: `wewh.newRecipeDraft.<id>`) and routes to
+  `/recipes/new?draft=<id>`. The new-recipe page reads the id, loads
+  the draft, renders the form pre-filled, and clears the stash. **The
+  form never saves automatically — the user reviews and clicks Save.**
+  Multiple drafts can coexist (each chat → new id), so opening
+  several pre-filled tabs in parallel works.
 - **"Apply N changes"** — implicit on detail pages: when the model
   calls a `patch_*` tool, the patch is applied immediately and the
   affected fields are highlighted. There is no separate confirm step

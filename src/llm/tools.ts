@@ -1098,7 +1098,12 @@ const ingredientPatchSchema = z
         'Sparse patch to the open ingredient form. Omit fields you do not change; supply complete arrays for aliases/countUnits.',
     )
 
-export const CLIENT_TOOL_DEFS = {
+/**
+ * Tools the client must execute. The server-side `tool()` definitions declare
+ * the input schema so the model can call them; the client supplies the
+ * `execute` via `useChat`'s `onToolCall` hook.
+ */
+export const DETAIL_PAGE_CLIENT_TOOL_DEFS = {
     patch_recipe_form: tool({
         description:
             'Apply a sparse patch to the OPEN recipe form on the current page. Only callable when the user is on a recipe detail page. Patches are highlighted in yellow for the user to review; nothing persists until the user clicks Save.',
@@ -1111,4 +1116,48 @@ export const CLIENT_TOOL_DEFS = {
     }),
 } as const
 
-export type ClientToolDefs = typeof CLIENT_TOOL_DEFS
+export const newRecipeDraftSchema = z.object({
+    titleDe: z.string().describe('German title. Required.'),
+    titleEn: z.string().describe('English title. Required.'),
+    notesDe: z.string().nullable(),
+    notesEn: z.string().nullable(),
+    cuisineKey: z
+        .string()
+        .describe(
+            'Cuisine key from the controlled vocabulary (call list_cuisines to discover valid keys). Use "other" if nothing fits.',
+        ),
+    activeTimeMinutes: z.number().int().nonnegative(),
+    waitTimeMinutes: z.number().int().nonnegative(),
+    isCompleteMeal: z.boolean(),
+    intendedServings: z
+        .number()
+        .int()
+        .positive()
+        .describe('Servings the ingredient amounts below are sized for.'),
+    ingredients: z.array(
+        z.object({
+            name: z.string(),
+            amount: z.number().positive().nullable(),
+            unit: z.string().nullable(),
+        }),
+    ),
+    steps: z.array(
+        z.object({
+            textDe: z.string().nullable(),
+            textEn: z.string().nullable(),
+        }),
+    ),
+})
+
+export type NewRecipeDraft = z.infer<typeof newRecipeDraftSchema>
+
+export const ALWAYS_CLIENT_TOOL_DEFS = {
+    open_new_recipe_form: tool({
+        description:
+            'Open the "new recipe" form pre-filled with the proposed recipe. The user reviews and saves manually — nothing is written to the database by this tool. Call this when the conversation has converged on a recipe the user wants to add to the catalog. Provide BOTH German and English titles + step texts. Amounts are at `intendedServings` scale (the form divides on save).',
+        inputSchema: z.object({ recipe: newRecipeDraftSchema }),
+    }),
+} as const
+
+export type ClientToolDefs = typeof DETAIL_PAGE_CLIENT_TOOL_DEFS &
+    typeof ALWAYS_CLIENT_TOOL_DEFS

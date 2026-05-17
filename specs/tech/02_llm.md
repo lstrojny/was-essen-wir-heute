@@ -88,24 +88,31 @@ see *Confirmation pattern*):
   rating for a recipe.
 - `clear_my_rating(recipe_id)` — removes the current user's rating.
 
-### Phase 2 — client-side form-patch tools (planned)
+### Phase 2 — client-side tools (planned)
 
-When the user is on a recipe or ingredient detail page, the chat
-exposes tools that the model executes **client-side** against the
-open React form state (not the database):
+These tools are declared on the server (so the model sees the input
+schema) but executed **in the browser** via `useChat`'s `onToolCall`.
+They never persist on their own; the user must click Save.
+
+Detail-page only (`DETAIL_PAGE_CLIENT_TOOL_DEFS`):
 
 - `patch_recipe_form(patch)` — apply a sparse patch to the open recipe
   form (any subset of title, notes, cuisine, times, ingredients,
-  steps, components, complete-meal flag). Triggers the same change-
-  tracking highlights the old refine-with-AI panel used.
+  steps, components, complete-meal flag). Triggers change-tracking
+  highlights.
 - `patch_ingredient_form(patch)` — same shape for the ingredient form
   (canonical names, role, density, notes, aliases, count units).
 
-These are defined with the AI SDK's tool API but without an
-`execute` handler on the server; the client supplies the handler via
-`useChat`'s `onToolCall` (or equivalent) and applies the patch to the
-form state. Patches never persist on their own — the user must click
-Save.
+Always available (`ALWAYS_CLIENT_TOOL_DEFS`):
+
+- `open_new_recipe_form(recipe)` — proposes a new recipe from the
+  conversation. Client stashes the structured recipe in
+  `sessionStorage` under a freshly generated draft id (key
+  `wewh.newRecipeDraft.<id>`) and navigates to
+  `/recipes/new?draft=<id>`. The new-recipe page loads the draft on
+  mount, pre-fills the form (re-mounting via `key` so initial values
+  are correct), and clears the stash so a reload does not re-apply.
+  Per-id indexing lets multiple drafts coexist for parallel editing.
 
 ### Phase 3 — server-side update / delete tools (built)
 

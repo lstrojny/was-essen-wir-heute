@@ -9,7 +9,8 @@ import {
     listIngredientsForPicker,
     listRecipesForComponentPicker,
 } from '@/recipes/queries'
-import { RecipeForm, type RecipeFormInitial } from '../RecipeForm'
+import type { RecipeFormInitial } from '../RecipeForm'
+import { NewRecipeFormClient } from './NewRecipeFormClient'
 
 const EMPTY: RecipeFormInitial = {
     id: null,
@@ -27,25 +28,32 @@ const EMPTY: RecipeFormInitial = {
     components: [],
 }
 
-export default async function NewRecipePage() {
+export default async function NewRecipePage({
+    searchParams,
+}: {
+    searchParams: Promise<{ draft?: string }>
+}) {
     const session = await requireSetupOrSession()
     const t = await getTranslations()
     const cuisines = listCuisines()
     const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(null)
+    const params = await searchParams
+    const draftId =
+        typeof params.draft === 'string' && params.draft ? params.draft : null
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
                 <Typography variant="h4">
                     {t('recipes.form.newTitle')}
                 </Typography>
-                <RecipeForm
-                    initialValues={EMPTY}
+                <NewRecipeFormClient
+                    empty={EMPTY}
                     cuisines={cuisines}
                     ingredientOptions={ingredients}
                     componentCandidates={componentCandidates}
                     activeLanguage={session.user.language}
-                    rolledUp={null}
+                    draftId={draftId}
                 />
             </Stack>
         </Container>

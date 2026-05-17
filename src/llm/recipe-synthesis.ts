@@ -1,7 +1,11 @@
 import { anthropic } from '@ai-sdk/anthropic'
 import { generateObject, type ModelMessage, stepCountIs, streamText } from 'ai'
 import { z } from 'zod'
-import { type ChatTools, CLIENT_TOOL_DEFS } from '@/llm/tools'
+import {
+    ALWAYS_CLIENT_TOOL_DEFS,
+    type ChatTools,
+    DETAIL_PAGE_CLIENT_TOOL_DEFS,
+} from '@/llm/tools'
 import type { RecipeDetail as SpoonacularRecipe } from '@/spoonacular/types'
 
 const DEFAULT_MODEL =
@@ -394,6 +398,10 @@ function buildChatSystemPrompt(
         "- 'make this vegetarian', 'halve the salt', 'use chicken thighs' (on recipe detail) → call patch_recipe_form",
         "These do NOT take a `confirmed` flag — the form's yellow change-highlights plus the user's manual Save button act as the confirmation.",
         '',
+        'Creating a new recipe from the conversation (always available):',
+        "- When the conversation has converged on a recipe the user wants to add to the catalog (e.g. they say 'save this', 'das speichern', 'add it'), call `open_new_recipe_form` with the structured recipe. This opens the 'new recipe' form pre-filled — the user reviews and clicks Save. The tool DOES NOT write to the database. Provide both German and English titles + step texts. Ingredient `amount` is at `intendedServings` scale (the form normalises on save).",
+        '- Do NOT confirm via a separate yes/no turn — the prefilled-form review is itself the confirmation step.',
+        '',
         'When a tool returns, summarise what you found or changed in plain language. Never paste raw JSON into your reply. If a tool fails (returns an `error` field), tell the user briefly and suggest a next step.',
         '',
         'Entity links: whenever your reply mentions a recipe or ingredient that you have fetched via a tool (and therefore have its id), render its name as a markdown link to its detail page:',
@@ -417,7 +425,8 @@ export function chatAboutRecipe(input: ChatTextInput) {
         input.pageContext.pageKind === 'ingredient-detail'
     const tools = {
         ...input.tools,
-        ...(showFormPatchTools ? CLIENT_TOOL_DEFS : {}),
+        ...ALWAYS_CLIENT_TOOL_DEFS,
+        ...(showFormPatchTools ? DETAIL_PAGE_CLIENT_TOOL_DEFS : {}),
     }
     return streamText({
         model: anthropic(DEFAULT_MODEL),

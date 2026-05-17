@@ -20,6 +20,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { PageContext } from '@/llm/recipe-synthesis'
+import type { NewRecipeDraft } from '@/llm/tools'
+import { storeNewRecipeDraft } from '@/recipes/draft-storage'
 import {
     type IngredientFormPatch,
     type RecipeFormPatch,
@@ -206,8 +208,36 @@ export function ChatSidebar() {
                 })
                 return
             }
+            if (toolCall.toolName === 'open_new_recipe_form') {
+                const recipe = (
+                    toolCall.input as { recipe?: NewRecipeDraft } | null
+                )?.recipe
+                if (!recipe) {
+                    toolCall.addToolResult({ error: 'missing recipe' })
+                    return
+                }
+                let draftId: string
+                try {
+                    draftId = storeNewRecipeDraft(recipe)
+                } catch (err) {
+                    toolCall.addToolResult({
+                        error:
+                            err instanceof Error
+                                ? `storage failed: ${err.message}`
+                                : 'storage failed',
+                    })
+                    return
+                }
+                router.push(`/recipes/new?draft=${encodeURIComponent(draftId)}`)
+                toolCall.addToolResult({
+                    ok: true,
+                    appliedTo: 'new recipe form',
+                    draftId,
+                })
+                return
+            }
         },
-        [bridgeApi],
+        [bridgeApi, router],
     )
 
     const transport = useMemo(
