@@ -2,10 +2,8 @@ import Box from '@mui/material/Box'
 import type { ReactNode } from 'react'
 import { requireSetupOrSession } from '@/auth/guards'
 import { AppNavBar } from './AppNavBar'
-import { ChatSidebar } from './ChatSidebar'
+import { ChatPane } from './ChatPane'
 import { FormBridgeProvider } from './FormBridge'
-
-const SIDEBAR_WIDTH = 360
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
     const session = await requireSetupOrSession()
@@ -38,24 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
                     >
                         {children}
                     </Box>
-                    <Box
-                        component="aside"
-                        sx={{
-                            width: SIDEBAR_WIDTH,
-                            flexShrink: 0,
-                            borderLeft: 1,
-                            borderColor: 'divider',
-                            display: { xs: 'none', md: 'flex' },
-                            flexDirection: 'column',
-                            position: 'sticky',
-                            top: 64,
-                            alignSelf: 'flex-start',
-                            height: 'calc(100vh - 64px)',
-                            bgcolor: 'background.paper',
-                        }}
-                    >
-                        <ChatSidebar />
-                    </Box>
+                    <ChatPane />
                 </Box>
             </Box>
         </FormBridgeProvider>

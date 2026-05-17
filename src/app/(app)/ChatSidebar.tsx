@@ -15,6 +15,8 @@ import { DefaultChatTransport } from 'ai'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import type { PageContext } from '@/llm/recipe-synthesis'
 import {
     type IngredientFormPatch,
@@ -269,16 +271,52 @@ export function ChatSidebar() {
                                                     color: isUser
                                                         ? 'primary.contrastText'
                                                         : 'text.primary',
+                                                    fontSize: '0.875rem',
+                                                    '& p': { my: 0.5 },
+                                                    '& p:first-of-type': {
+                                                        mt: 0,
+                                                    },
+                                                    '& p:last-of-type': {
+                                                        mb: 0,
+                                                    },
+                                                    '& ul, & ol': {
+                                                        my: 0.5,
+                                                        pl: 2.5,
+                                                    },
+                                                    '& li': { my: 0.25 },
+                                                    '& code': {
+                                                        bgcolor: isUser
+                                                            ? 'rgba(255,255,255,0.18)'
+                                                            : 'rgba(0,0,0,0.08)',
+                                                        px: 0.5,
+                                                        borderRadius: 0.5,
+                                                        fontSize: '0.85em',
+                                                    },
+                                                    '& pre': {
+                                                        bgcolor: isUser
+                                                            ? 'rgba(255,255,255,0.18)'
+                                                            : 'rgba(0,0,0,0.08)',
+                                                        p: 1,
+                                                        borderRadius: 1,
+                                                        overflowX: 'auto',
+                                                        '& code': {
+                                                            bgcolor:
+                                                                'transparent',
+                                                            px: 0,
+                                                        },
+                                                    },
+                                                    '& a': {
+                                                        color: 'inherit',
+                                                        textDecoration:
+                                                            'underline',
+                                                    },
                                                 }}
                                             >
-                                                <Typography
-                                                    variant="body2"
-                                                    sx={{
-                                                        whiteSpace: 'pre-wrap',
-                                                    }}
+                                                <ReactMarkdown
+                                                    remarkPlugins={[remarkGfm]}
                                                 >
                                                     {part.text}
-                                                </Typography>
+                                                </ReactMarkdown>
                                             </Box>
                                         )
                                     }
