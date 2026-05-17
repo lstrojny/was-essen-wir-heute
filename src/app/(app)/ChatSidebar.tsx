@@ -253,6 +253,10 @@ export function ChatSidebar() {
         transport,
         onToolCall,
         sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
+        // Coalesce rapid stream notifications; without this, large tool-input
+        // payloads (e.g. multi-language recipe drafts) trip React's nested-
+        // update guard during concurrent rendering.
+        experimental_throttle: 50,
         onFinish: ({ message }) => {
             // Any successful server-write tool output → refresh the current
             // route so list/detail views reflect the new DB state.

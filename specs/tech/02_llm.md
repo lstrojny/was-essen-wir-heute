@@ -41,11 +41,14 @@ operations, one per call-site:
 - `chatAboutRecipe(messages, tools, pageContext)` — free-form streaming
   text response that powers the persistent AI chat (see
   `07_ai_chat.md`). Uses the AI SDK's `streamText` so the UI can render
-  tokens as they arrive. Accepts a **tool catalog** so the model can
-  consult and mutate the user's data, and a **page context** describing
-  what the user is currently looking at (page kind, entity id, current
-  form state). The structured emit happens separately via
-  `synthesizeRecipeFromMessages`.
+  tokens as they arrive. The client coalesces stream notifications via
+  `useChat`'s `experimental_throttle` (~50 ms); without this, large tool-
+  input payloads (multi-language recipe drafts streamed token by token)
+  outpace React's commit cycle and trip its nested-update guard. Accepts
+  a **tool catalog** so the model can consult and mutate the user's
+  data, and a **page context** describing what the user is currently
+  looking at (page kind, entity id, current form state). The structured
+  emit happens separately via `synthesizeRecipeFromMessages`.
 - `enrichSpoonacularImport(detail)` — see `04_imports.md`.
 - `translateText(text, from, to)` — used by the on-demand translate
   action in `06_i18n.md`.

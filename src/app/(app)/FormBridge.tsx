@@ -3,12 +3,10 @@
 import {
     createContext,
     type ReactNode,
-    useCallback,
     useContext,
     useEffect,
     useMemo,
     useRef,
-    useState,
 } from 'react'
 import type { IngredientId, RecipeId } from '@/db/ids'
 
@@ -92,22 +90,18 @@ export function FormBridgeProvider({ children }: { children: ReactNode }) {
         recipe: null,
         ingredient: null,
     })
-    const [, force] = useState(0)
-    const tick = useCallback(() => force((n) => n + 1), [])
 
     const api = useMemo<FormBridgeApi>(
         () => ({
             getStore: () => storeRef.current,
             registerRecipe: (bridge) => {
                 storeRef.current.recipe = bridge
-                tick()
             },
             registerIngredient: (bridge) => {
                 storeRef.current.ingredient = bridge
-                tick()
             },
         }),
-        [tick],
+        [],
     )
 
     return (
