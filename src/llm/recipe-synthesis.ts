@@ -2,6 +2,10 @@ import { createOpenAI } from '@ai-sdk/openai'
 import { generateObject, type ModelMessage, stepCountIs, streamText } from 'ai'
 import { z } from 'zod'
 import {
+    optionalLocaleMapSchema,
+    requiredLocaleMapSchema,
+} from '@/i18n/translatable'
+import {
     ALWAYS_CLIENT_TOOL_DEFS,
     type ChatTools,
     DETAIL_PAGE_CLIENT_TOOL_DEFS,
@@ -39,8 +43,9 @@ const ingredientSchema = z.object({
 })
 
 const stepSchema = z.object({
-    textDe: z.string().nullable().describe('German step text. Required.'),
-    textEn: z.string().nullable().describe('English step text. Required.'),
+    text: requiredLocaleMapSchema().describe(
+        'Step text per locale; all supported locales required.',
+    ),
 })
 
 export type RecipeSynthesisInput = {
@@ -54,17 +59,12 @@ export type RecipeSynthesisInput = {
 export type SynthesizedRecipe = z.infer<typeof recipeSchema>
 
 const recipeSchema = z.object({
-    titleDe: z
-        .string()
-        .describe('German recipe title. Always populate both languages.'),
-    titleEn: z
-        .string()
-        .describe('English recipe title. Always populate both languages.'),
-    notesDe: z
-        .string()
-        .nullable()
-        .describe('Optional German notes (substitutions, warnings, tips).'),
-    notesEn: z.string().nullable().describe('Optional English notes.'),
+    title: requiredLocaleMapSchema().describe(
+        'Recipe title per locale; all supported locales required.',
+    ),
+    notes: optionalLocaleMapSchema().describe(
+        'Optional recipe notes per locale (substitutions, warnings, tips). Omit a locale if empty.',
+    ),
     cuisineKey: z
         .string()
         .describe(
@@ -273,8 +273,7 @@ export type PageContext =
 
 type RecipeFormCtx = {
     id?: string | null
-    titleDe?: string | null
-    titleEn?: string | null
+    title?: { de?: string; en?: string }
     cuisineKey?: string | null
     isCompleteMeal?: boolean
     activeTimeMinutes?: string
@@ -285,11 +284,10 @@ type RecipeFormCtx = {
 
 type IngredientFormCtx = {
     id?: string | null
-    canonicalDe?: string | null
-    canonicalEn?: string | null
+    canonical?: { de?: string; en?: string }
     role?: string
     density?: string
-    aliases?: string[]
+    aliases?: Array<unknown>
     countUnits?: Array<unknown>
 }
 
@@ -297,7 +295,7 @@ function summarizeRecipeForm(r: unknown): string {
     if (typeof r !== 'object' || r === null) return '(no form data)'
     const f = r as RecipeFormCtx
     const id = f.id ?? '(unsaved)'
-    const title = f.titleEn || f.titleDe || '(unnamed)'
+    const title = f.title?.en || f.title?.de || '(unnamed)'
     return [
         `id=${id}`,
         `title="${title}"`,
@@ -316,7 +314,7 @@ function summarizeIngredientForm(r: unknown): string {
     if (typeof r !== 'object' || r === null) return '(no form data)'
     const f = r as IngredientFormCtx
     const id = f.id ?? '(unsaved)'
-    const name = f.canonicalEn || f.canonicalDe || '(unnamed)'
+    const name = f.canonical?.en || f.canonical?.de || '(unnamed)'
     return [
         `id=${id}`,
         `name="${name}"`,

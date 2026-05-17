@@ -18,7 +18,11 @@ import Typography from '@mui/material/Typography'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useActionState, useCallback, useMemo, useState } from 'react'
-import type { CuisineKey, IngredientId, RecipeId } from '@/db/ids'
+import type { CuisineKey, IngredientId, RecipeId, RecipeStepId } from '@/db/ids'
+import { type LocaleMap, SUPPORTED_LOCALES } from '@/i18n/locale'
+import { resolveText } from '@/i18n/translatable'
+import { foldForMatch } from '@/ingredients/name-match'
+import { TranslateButton } from '../TranslateButton'
 import {
     copyRecipeAction,
     createRecipeAction,
@@ -38,7 +42,6 @@ import {
     type UnitCategory,
     type UnitOption,
 } from '@/recipes/units'
-import { foldForMatch } from '@/ingredients/name-match'
 import {
     type RecipeFormPatch,
     type RecipeFormSnapshot,
@@ -66,24 +69,21 @@ export type RecipeFormIngredient = {
 }
 
 export type RecipeFormStep = {
-    textDe: string
-    textEn: string
+    id: RecipeStepId | null
+    text: LocaleMap
 }
 
 export type RecipeFormComponent = {
     childRecipeId: RecipeId
-    titleDe: string | null
-    titleEn: string | null
+    title: LocaleMap
     totalActiveTimeMinutes: number
     totalWaitTimeMinutes: number
 }
 
 export type RecipeFormInitial = {
     id: RecipeId | null
-    titleDe: string
-    titleEn: string
-    notesDe: string
-    notesEn: string
+    title: LocaleMap
+    notes: LocaleMap
     cuisineKey: CuisineKey | ''
     activeTimeMinutes: string
     waitTimeMinutes: string
@@ -125,10 +125,19 @@ export function RecipeForm({
     const action =
         initialValues.id === null ? createRecipeAction : updateRecipeAction
     const [state, formAction, pending] = useActionState(action, initial)
-    const [titleDe, setTitleDe] = useState(initialValues.titleDe)
-    const [titleEn, setTitleEn] = useState(initialValues.titleEn)
-    const [notesDe, setNotesDe] = useState(initialValues.notesDe)
-    const [notesEn, setNotesEn] = useState(initialValues.notesEn)
+    const [title, setTitle] = useState<LocaleMap>(initialValues.title)
+    const [notes, setNotes] = useState<LocaleMap>(initialValues.notes)
+    const titleActive = title[activeLanguage] ?? ''
+    const notesActive = notes[activeLanguage] ?? ''
+    function setActive(prev: LocaleMap, value: string): LocaleMap {
+        const next: LocaleMap = { ...prev }
+        if (value === '') {
+            delete next[activeLanguage]
+        } else {
+            next[activeLanguage] = value
+        }
+        return next
+    }
     const [cuisineKey, setCuisineKey] = useState<string>(
         initialValues.cuisineKey,
     )
@@ -182,10 +191,8 @@ export function RecipeForm({
     const snapshot = useMemo<RecipeFormSnapshot>(
         () => ({
             id: initialValues.id,
-            titleDe,
-            titleEn,
-            notesDe,
-            notesEn,
+            title,
+            notes,
             cuisineKey,
             activeTimeMinutes,
             waitTimeMinutes,
@@ -195,14 +202,12 @@ export function RecipeForm({
                 unit: ing.unit,
                 name: ing.name,
             })),
-            steps: steps.map((s) => ({ textDe: s.textDe, textEn: s.textEn })),
+            steps: steps.map((s) => ({ id: s.id, text: { ...s.text } })),
         }),
         [
             initialValues.id,
-            titleDe,
-            titleEn,
-            notesDe,
-            notesEn,
+            title,
+            notes,
             cuisineKey,
             activeTimeMinutes,
             waitTimeMinutes,
@@ -215,27 +220,25 @@ export function RecipeForm({
     const applyPatch = useCallback(
         (patch: RecipeFormPatch) => {
             const flags: Partial<ChangedFields> = {}
-            if (patch.titleDe !== undefined && patch.titleDe !== titleDe) {
-                setTitleDe(patch.titleDe)
-                flags.titleDe = true
-            }
-            if (patch.titleEn !== undefined && patch.titleEn !== titleEn) {
-                setTitleEn(patch.titleEn)
-                flags.titleEn = true
-            }
-            if (patch.notesDe !== undefined) {
-                const s = patch.notesDe ?? ''
-                if (s !== notesDe) {
-                    setNotesDe(s)
-                    flags.notesDe = true
+            if (patch.title !== undefined) {
+                const merged: LocaleMap = { ...title, ...patch.title }
+                if (
+                    (merged[activeLanguage] ?? '') !==
+                    (title[activeLanguage] ?? '')
+                ) {
+                    flags.title = true
                 }
+                setTitle(merged)
             }
-            if (patch.notesEn !== undefined) {
-                const s = patch.notesEn ?? ''
-                if (s !== notesEn) {
-                    setNotesEn(s)
-                    flags.notesEn = true
+            if (patch.notes !== undefined) {
+                const merged: LocaleMap = { ...notes, ...patch.notes }
+                if (
+                    (merged[activeLanguage] ?? '') !==
+                    (notes[activeLanguage] ?? '')
+                ) {
+                    flags.notes = true
                 }
+                setNotes(merged)
             }
             if (
                 patch.cuisineKey !== undefined &&
@@ -285,8 +288,8 @@ export function RecipeForm({
             let nextSteps: typeof steps | null = null
             if (patch.steps !== undefined) {
                 nextSteps = patch.steps.map((s) => ({
-                    textDe: s.textDe ?? '',
-                    textEn: s.textEn ?? '',
+                    id: null,
+                    text: { ...s.text },
                 }))
                 setSteps(nextSteps)
             }
@@ -321,13 +324,18 @@ export function RecipeForm({
                     for (let i = 0; i < len; i++) {
                         const a = steps[i]
                         const b = nextSteps[i]
-                        if (
-                            !a ||
-                            !b ||
-                            a.textDe !== b.textDe ||
-                            a.textEn !== b.textEn
-                        ) {
+                        if (!a || !b) {
                             out.steps.add(i)
+                            continue
+                        }
+                        for (const locale of SUPPORTED_LOCALES) {
+                            if (
+                                (a.text[locale] ?? '') !==
+                                (b.text[locale] ?? '')
+                            ) {
+                                out.steps.add(i)
+                                break
+                            }
                         }
                     }
                 }
@@ -335,10 +343,9 @@ export function RecipeForm({
             })
         },
         [
-            titleDe,
-            titleEn,
-            notesDe,
-            notesEn,
+            activeLanguage,
+            title,
+            notes,
             cuisineKey,
             activeTimeMinutes,
             waitTimeMinutes,
@@ -370,13 +377,10 @@ export function RecipeForm({
         setAppliedFormServings(formServings)
     }
 
-    function recipeLabel(row: {
-        titleDe: string | null
-        titleEn: string | null
-    }): string {
-        const primary = activeLanguage === 'de' ? row.titleDe : row.titleEn
-        const fallback = activeLanguage === 'de' ? row.titleEn : row.titleDe
-        return primary ?? fallback ?? t('recipes.unnamed')
+    function recipeLabel(row: { title: LocaleMap }): string {
+        return (
+            resolveText(row.title, activeLanguage)?.text ?? t('recipes.unnamed')
+        )
     }
 
     const availableComponents = useMemo(
@@ -392,8 +396,7 @@ export function RecipeForm({
             ...components,
             {
                 childRecipeId: row.id,
-                titleDe: row.titleDe,
-                titleEn: row.titleEn,
+                title: row.title,
                 totalActiveTimeMinutes: row.totalActiveTimeMinutes,
                 totalWaitTimeMinutes: row.totalWaitTimeMinutes,
             },
@@ -414,42 +417,50 @@ export function RecipeForm({
 
     const pickerOptions = useMemo<PickerOption[]>(() => {
         return ingredientOptions.map((row) => {
-            const primary =
-                activeLanguage === 'de' ? row.canonicalDe : row.canonicalEn
-            const secondary =
-                activeLanguage === 'de' ? row.canonicalEn : row.canonicalDe
-            const label = primary ?? secondary ?? t('ingredients.unnamed')
-            const haystack = foldForMatch(
-                [primary, secondary, ...row.aliases]
-                    .filter((s): s is string => Boolean(s))
-                    .join(' '),
-            )
+            const resolved = resolveText(row.canonical, activeLanguage)
+            const label = resolved?.text ?? t('ingredients.unnamed')
+            const secondary = resolved?.isFallback
+                ? null
+                : (Object.entries(row.canonical).find(
+                      ([locale]) => locale !== activeLanguage,
+                  )?.[1] ?? null)
+            const haystackParts: string[] = []
+            for (const value of Object.values(row.canonical)) {
+                if (value) haystackParts.push(value)
+            }
+            for (const alias of row.aliases) {
+                for (const value of Object.values(alias)) {
+                    if (value) haystackParts.push(value)
+                }
+            }
             return {
                 id: row.id,
                 label,
-                secondary: primary && secondary ? secondary : null,
-                haystack,
+                secondary,
+                haystack: foldForMatch(haystackParts.join(' ')),
             }
         })
     }, [ingredientOptions, activeLanguage, t])
 
     // Folded-name → existing-entry index. Mirrors the auto-link-on-save logic
-    // (see findIngredientByName in src/recipes/queries.ts) so the indicator
+    // (see findIngredientByName in src/ingredients/queries.ts) so the indicator
     // shows the same match the server would compute at save time.
     const matchIndex = useMemo(() => {
         const map = new Map<string, { id: IngredientId; label: string }>()
         for (const row of ingredientOptions) {
-            const display =
-                activeLanguage === 'de'
-                    ? (row.canonicalDe ?? row.canonicalEn)
-                    : (row.canonicalEn ?? row.canonicalDe)
-            const label = display ?? t('ingredients.unnamed')
-            for (const key of [
-                row.canonicalDe,
-                row.canonicalEn,
-                ...row.aliases,
-            ]) {
-                if (!key) continue
+            const label =
+                resolveText(row.canonical, activeLanguage)?.text ??
+                t('ingredients.unnamed')
+            const keys: string[] = []
+            for (const value of Object.values(row.canonical)) {
+                if (value) keys.push(value)
+            }
+            for (const alias of row.aliases) {
+                for (const value of Object.values(alias)) {
+                    if (value) keys.push(value)
+                }
+            }
+            for (const key of keys) {
                 const folded = foldForMatch(key)
                 if (folded && !map.has(folded)) {
                     map.set(folded, { id: row.id, label })
@@ -483,21 +494,19 @@ export function RecipeForm({
         setIngredients(ingredients.filter((_, i) => i !== index))
     }
 
-    function updateStep(
-        index: number,
-        field: 'textDe' | 'textEn',
-        value: string,
-    ) {
+    function updateStep(index: number, value: string) {
         setSteps((prev) =>
             prev.map((row, i) =>
-                i === index ? { ...row, [field]: value } : row,
+                i === index
+                    ? { ...row, text: setActive(row.text, value) }
+                    : row,
             ),
         )
         clearChangedStep(index)
     }
 
     function addStep() {
-        setSteps([...steps, { textDe: '', textEn: '' }])
+        setSteps([...steps, { id: null, text: {} }])
     }
 
     function removeStep(index: number) {
@@ -539,32 +548,33 @@ export function RecipeForm({
                         <Typography variant="body2" color="text.secondary">
                             {t('recipes.form.titles.intro')}
                         </Typography>
-                        <TextField
-                            name="titleDe"
-                            label={t('recipes.form.titles.de')}
-                            value={titleDe}
-                            onChange={(e) => {
-                                setTitleDe(e.target.value)
-                                clearChanged('titleDe')
-                            }}
-                            color={
-                                changedFields.titleDe ? 'warning' : undefined
-                            }
-                            focused={changedFields.titleDe || undefined}
-                        />
-                        <TextField
-                            name="titleEn"
-                            label={t('recipes.form.titles.en')}
-                            value={titleEn}
-                            onChange={(e) => {
-                                setTitleEn(e.target.value)
-                                clearChanged('titleEn')
-                            }}
-                            color={
-                                changedFields.titleEn ? 'warning' : undefined
-                            }
-                            focused={changedFields.titleEn || undefined}
-                        />
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                                name="title"
+                                label={t('recipes.form.titles.label')}
+                                value={titleActive}
+                                onChange={(e) => {
+                                    setTitle((prev) =>
+                                        setActive(prev, e.target.value),
+                                    )
+                                    clearChanged('title')
+                                }}
+                                color={changedFields.title ? 'warning' : undefined}
+                                focused={changedFields.title || undefined}
+                                sx={{ flexGrow: 1 }}
+                            />
+                            <TranslateButton
+                                value={title}
+                                activeLocale={activeLanguage}
+                                kind="recipe.title"
+                                onApply={(merged) => {
+                                    setTitle((prev) => ({ ...prev, ...merged }))
+                                    if (merged[activeLanguage] !== undefined) {
+                                        clearChanged('title')
+                                    }
+                                }}
+                            />
+                        </Box>
                     </Stack>
                 </Paper>
 
@@ -590,9 +600,7 @@ export function RecipeForm({
                         >
                             {cuisines.map((c) => (
                                 <MenuItem key={c.key} value={c.key}>
-                                    {activeLanguage === 'de'
-                                        ? c.labelDe
-                                        : c.labelEn}
+                                    {c.label}
                                 </MenuItem>
                             ))}
                         </TextField>
@@ -789,36 +797,35 @@ export function RecipeForm({
                         <Typography variant="body2" color="text.secondary">
                             {t('recipes.form.notes.intro')}
                         </Typography>
-                        <TextField
-                            name="notesDe"
-                            label={t('recipes.form.notes.de')}
-                            value={notesDe}
-                            onChange={(e) => {
-                                setNotesDe(e.target.value)
-                                clearChanged('notesDe')
-                            }}
-                            color={
-                                changedFields.notesDe ? 'warning' : undefined
-                            }
-                            focused={changedFields.notesDe || undefined}
-                            multiline
-                            minRows={2}
-                        />
-                        <TextField
-                            name="notesEn"
-                            label={t('recipes.form.notes.en')}
-                            value={notesEn}
-                            onChange={(e) => {
-                                setNotesEn(e.target.value)
-                                clearChanged('notesEn')
-                            }}
-                            color={
-                                changedFields.notesEn ? 'warning' : undefined
-                            }
-                            focused={changedFields.notesEn || undefined}
-                            multiline
-                            minRows={2}
-                        />
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                                name="notes"
+                                label={t('recipes.form.notes.label')}
+                                value={notesActive}
+                                onChange={(e) => {
+                                    setNotes((prev) =>
+                                        setActive(prev, e.target.value),
+                                    )
+                                    clearChanged('notes')
+                                }}
+                                color={changedFields.notes ? 'warning' : undefined}
+                                focused={changedFields.notes || undefined}
+                                multiline
+                                minRows={2}
+                                sx={{ flexGrow: 1 }}
+                            />
+                            <TranslateButton
+                                value={notes}
+                                activeLocale={activeLanguage}
+                                kind="recipe.notes"
+                                onApply={(merged) => {
+                                    setNotes((prev) => ({ ...prev, ...merged }))
+                                    if (merged[activeLanguage] !== undefined) {
+                                        clearChanged('notes')
+                                    }
+                                }}
+                            />
+                        </Box>
                     </Stack>
                 </Paper>
 
@@ -1149,34 +1156,59 @@ export function RecipeForm({
                                         {index + 1}.
                                     </Typography>
                                     <Stack spacing={1} sx={{ flex: 1 }}>
-                                        <TextField
-                                            name="stepDe"
-                                            label={t('recipes.form.steps.de')}
-                                            value={row.textDe}
-                                            onChange={(e) =>
-                                                updateStep(
-                                                    index,
-                                                    'textDe',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            multiline
-                                            minRows={1}
+                                        <input
+                                            type="hidden"
+                                            name="stepId"
+                                            value={row.id ?? ''}
                                         />
-                                        <TextField
-                                            name="stepEn"
-                                            label={t('recipes.form.steps.en')}
-                                            value={row.textEn}
-                                            onChange={(e) =>
-                                                updateStep(
-                                                    index,
-                                                    'textEn',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            multiline
-                                            minRows={1}
-                                        />
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                gap: 1,
+                                                alignItems: 'flex-start',
+                                            }}
+                                        >
+                                            <TextField
+                                                name="step"
+                                                label={t(
+                                                    'recipes.form.steps.label',
+                                                    { n: index + 1 },
+                                                )}
+                                                value={
+                                                    row.text[activeLanguage] ??
+                                                    ''
+                                                }
+                                                onChange={(e) =>
+                                                    updateStep(
+                                                        index,
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                multiline
+                                                minRows={1}
+                                                sx={{ flexGrow: 1 }}
+                                            />
+                                            <TranslateButton
+                                                value={row.text}
+                                                activeLocale={activeLanguage}
+                                                kind="recipe.step"
+                                                onApply={(merged) => {
+                                                    setSteps((prev) =>
+                                                        prev.map((s, i) =>
+                                                            i === index
+                                                                ? {
+                                                                      ...s,
+                                                                      text: {
+                                                                          ...s.text,
+                                                                          ...merged,
+                                                                      },
+                                                                  }
+                                                                : s,
+                                                        ),
+                                                    )
+                                                }}
+                                            />
+                                        </Box>
                                     </Stack>
                                     <IconButton
                                         onClick={() => removeStep(index)}

@@ -1,4 +1,5 @@
 import { asCuisineKey, parseCuisineKey } from '@/db/ids'
+import { type LocaleMap, SUPPORTED_LOCALES } from '@/i18n/locale'
 import type { SynthesizedRecipe } from '@/llm/recipe-synthesis'
 import type { RecipeFormInitial } from './RecipeForm'
 
@@ -7,10 +8,8 @@ export function synthesizedToFormInitial(
 ): RecipeFormInitial {
     return {
         id: null,
-        titleDe: recipe.titleDe,
-        titleEn: recipe.titleEn,
-        notesDe: recipe.notesDe ?? '',
-        notesEn: recipe.notesEn ?? '',
+        title: recipe.title,
+        notes: recipe.notes,
         cuisineKey: parseCuisineKey(recipe.cuisineKey) ?? asCuisineKey('other'),
         activeTimeMinutes: String(recipe.activeTimeMinutes),
         waitTimeMinutes:
@@ -23,19 +22,21 @@ export function synthesizedToFormInitial(
             name: ing.name,
             ingredientId: null,
         })),
-        steps: recipe.steps.map((step) => ({
-            textDe: step.textDe ?? '',
-            textEn: step.textEn ?? '',
-        })),
+        steps: recipe.steps.map((step) => ({ id: null, text: step.text })),
         components: [],
     }
 }
 
+function localeMapEquals(a: LocaleMap, b: LocaleMap): boolean {
+    for (const locale of SUPPORTED_LOCALES) {
+        if ((a[locale] ?? '') !== (b[locale] ?? '')) return false
+    }
+    return true
+}
+
 export type ChangedFields = {
-    titleDe: boolean
-    titleEn: boolean
-    notesDe: boolean
-    notesEn: boolean
+    title: boolean
+    notes: boolean
     cuisineKey: boolean
     activeTimeMinutes: boolean
     waitTimeMinutes: boolean
@@ -46,10 +47,8 @@ export type ChangedFields = {
 
 export function emptyChangedFields(): ChangedFields {
     return {
-        titleDe: false,
-        titleEn: false,
-        notesDe: false,
-        notesEn: false,
+        title: false,
+        notes: false,
         cuisineKey: false,
         activeTimeMinutes: false,
         waitTimeMinutes: false,
@@ -64,10 +63,8 @@ export function diffFormInitial(
     next: RecipeFormInitial,
 ): ChangedFields {
     const changed = emptyChangedFields()
-    changed.titleDe = previous.titleDe !== next.titleDe
-    changed.titleEn = previous.titleEn !== next.titleEn
-    changed.notesDe = previous.notesDe !== next.notesDe
-    changed.notesEn = previous.notesEn !== next.notesEn
+    changed.title = !localeMapEquals(previous.title, next.title)
+    changed.notes = !localeMapEquals(previous.notes, next.notes)
     changed.cuisineKey = previous.cuisineKey !== next.cuisineKey
     changed.activeTimeMinutes =
         previous.activeTimeMinutes !== next.activeTimeMinutes
@@ -94,7 +91,7 @@ export function diffFormInitial(
     for (let i = 0; i < stepLen; i++) {
         const a = previous.steps[i]
         const b = next.steps[i]
-        if (!a || !b || a.textDe !== b.textDe || a.textEn !== b.textEn) {
+        if (!a || !b || !localeMapEquals(a.text, b.text)) {
             changed.steps.add(i)
         }
     }

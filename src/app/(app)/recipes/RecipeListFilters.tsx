@@ -19,13 +19,11 @@ export function RecipeListFilters({
     defaultCuisineKey,
     defaultCompleteOnly,
     cuisines,
-    activeLanguage,
 }: {
     defaultSearch: string
     defaultCuisineKey: CuisineKey | null
     defaultCompleteOnly: boolean
     cuisines: CuisineRow[]
-    activeLanguage: 'de' | 'en'
 }) {
     const t = useTranslations()
     const router = useRouter()
@@ -94,7 +92,7 @@ export function RecipeListFilters({
                 <MenuItem value="">{t('recipes.allCuisines')}</MenuItem>
                 {cuisines.map((c) => (
                     <MenuItem key={c.key} value={c.key}>
-                        {activeLanguage === 'de' ? c.labelDe : c.labelEn}
+                        {c.label}
                     </MenuItem>
                 ))}
             </TextField>

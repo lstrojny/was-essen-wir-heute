@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { resolveText } from '@/i18n/translatable'
 import type { RecipeUsingIngredient } from '@/recipes/queries'
 
 export function UsedInRecipes({
@@ -32,17 +33,13 @@ export function UsedInRecipes({
                 ) : (
                     <Stack spacing={1}>
                         {rows.map((row) => {
-                            const primary =
-                                activeLanguage === 'de'
-                                    ? row.titleDe
-                                    : row.titleEn
-                            const fallback =
-                                activeLanguage === 'de'
-                                    ? row.titleEn
-                                    : row.titleDe
+                            const resolved = resolveText(
+                                row.title,
+                                activeLanguage,
+                            )
                             const display =
-                                primary ?? fallback ?? t('recipes.unnamed')
-                            const untranslated = primary === null
+                                resolved?.text ?? t('recipes.unnamed')
+                            const untranslated = resolved?.isFallback ?? true
                             return (
                                 <Link
                                     key={row.id}

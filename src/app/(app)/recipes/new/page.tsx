@@ -14,10 +14,8 @@ import { NewRecipeFormClient } from './NewRecipeFormClient'
 
 const EMPTY: RecipeFormInitial = {
     id: null,
-    titleDe: '',
-    titleEn: '',
-    notesDe: '',
-    notesEn: '',
+    title: {},
+    notes: {},
     cuisineKey: '',
     activeTimeMinutes: '',
     waitTimeMinutes: '',
@@ -35,7 +33,7 @@ export default async function NewRecipePage({
 }) {
     const session = await requireSetupOrSession()
     const t = await getTranslations()
-    const cuisines = listCuisines()
+    const cuisines = listCuisines(session.user.language)
     const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(null)
     const params = await searchParams

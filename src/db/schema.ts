@@ -3,6 +3,7 @@ import {
     foreignKey,
     index,
     integer,
+    primaryKey,
     real,
     sqliteTable,
     text,
@@ -10,12 +11,12 @@ import {
 } from 'drizzle-orm/sqlite-core'
 import {
     type CuisineKey,
-    type IngredientAliasId,
     type IngredientCountUnitId,
     type IngredientId,
-    newIngredientAliasId,
+    type IngredientsAliasId,
     newIngredientCountUnitId,
     newIngredientId,
+    newIngredientsAliasId,
     newRecipeComponentId,
     newRecipeId,
     newRecipeIngredientId,
@@ -28,6 +29,7 @@ import {
     type RecipeRatingId,
     type RecipeStepId,
     type SessionId,
+    type TranslatedStringGroupId,
     type UserId,
 } from './ids'
 
@@ -76,67 +78,23 @@ export const sessions = sqliteTable(
     ],
 )
 
-export const ingredients = sqliteTable(
-    'ingredients',
-    {
-        id: text('id')
-            .primaryKey()
-            .$type<IngredientId>()
-            .$defaultFn(() => newIngredientId()),
-        canonicalDe: text('canonical_de'),
-        canonicalEn: text('canonical_en'),
-        // Pre-computed folded forms (NFC + de-locale lower-case + German digraph
-        // expansion + diacritic strip). Written from JS on every insert/update
-        // so name-equality lookups can use a btree index. Kept in sync with the
-        // source columns by app code; a startup hook repairs drift.
-        canonicalDeFolded: text('canonical_de_folded'),
-        canonicalEnFolded: text('canonical_en_folded'),
-        role: text('role', {
-            enum: ['starch', 'vegetable', 'protein', 'none'],
-        }).notNull(),
-        density: real('density'),
-        notes: text('notes'),
-        createdAt: timestampMs('created_at')
-            .notNull()
-            .default(sql`(unixepoch() * 1000)`),
-        updatedAt: timestampMs('updated_at')
-            .notNull()
-            .default(sql`(unixepoch() * 1000)`),
-    },
-    (table) => [
-        index('ingredients_canonical_de_folded_idx').on(
-            table.canonicalDeFolded,
-        ),
-        index('ingredients_canonical_en_folded_idx').on(
-            table.canonicalEnFolded,
-        ),
-    ],
-)
-
-export const ingredientAliases = sqliteTable(
-    'ingredient_aliases',
-    {
-        id: text('id')
-            .primaryKey()
-            .$type<IngredientAliasId>()
-            .$defaultFn(() => newIngredientAliasId()),
-        ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
-        alias: text('alias').notNull(),
-        // Pre-computed folded form for indexed equality lookups (NFC +
-        // de-locale lower + German digraph + diacritic strip). Globally
-        // unique — see the index below.
-        aliasFolded: text('alias_folded'),
-    },
-    (table) => [
-        foreignKey({
-            columns: [table.ingredientId],
-            foreignColumns: [ingredients.id],
-        }).onDelete('cascade'),
-        uniqueIndex('ingredient_aliases_folded_global_unique').on(
-            table.aliasFolded,
-        ),
-    ],
-)
+export const ingredients = sqliteTable('ingredients', {
+    id: text('id')
+        .primaryKey()
+        .$type<IngredientId>()
+        .$defaultFn(() => newIngredientId()),
+    role: text('role', {
+        enum: ['starch', 'vegetable', 'protein', 'none'],
+    }).notNull(),
+    density: real('density'),
+    notes: text('notes'),
+    createdAt: timestampMs('created_at')
+        .notNull()
+        .default(sql`(unixepoch() * 1000)`),
+    updatedAt: timestampMs('updated_at')
+        .notNull()
+        .default(sql`(unixepoch() * 1000)`),
+})
 
 export const ingredientCountUnits = sqliteTable(
     'ingredient_count_units',
@@ -163,8 +121,6 @@ export const ingredientCountUnits = sqliteTable(
 
 export const cuisines = sqliteTable('cuisines', {
     key: text('key').primaryKey().$type<CuisineKey>(),
-    labelDe: text('label_de').notNull(),
-    labelEn: text('label_en').notNull(),
 })
 
 export const recipes = sqliteTable(
@@ -174,10 +130,6 @@ export const recipes = sqliteTable(
             .primaryKey()
             .$type<RecipeId>()
             .$defaultFn(() => newRecipeId()),
-        titleDe: text('title_de'),
-        titleEn: text('title_en'),
-        notesDe: text('notes_de'),
-        notesEn: text('notes_en'),
         cuisineKey: text('cuisine_key').notNull().$type<CuisineKey>(),
         activeTimeMinutes: integer('active_time_minutes').notNull(),
         waitTimeMinutes: integer('wait_time_minutes').notNull().default(0),
@@ -213,8 +165,6 @@ export const recipeSteps = sqliteTable(
             .$defaultFn(() => newRecipeStepId()),
         recipeId: text('recipe_id').notNull().$type<RecipeId>(),
         position: integer('position').notNull(),
-        textDe: text('text_de'),
-        textEn: text('text_en'),
     },
     (table) => [
         foreignKey({
@@ -333,5 +283,137 @@ export const recipeRatings = sqliteTable(
             table.recipeId,
             table.userId,
         ),
+    ],
+)
+
+export const translatedStrings = sqliteTable(
+    'translated_strings',
+    {
+        id: text('id').notNull().$type<TranslatedStringGroupId>(),
+        locale: text('locale', { enum: ['de', 'en'] }).notNull(),
+        string: text('string').notNull(),
+        stringFolded: text('string_folded').notNull(),
+        createdAt: timestampMs('created_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+        updatedAt: timestampMs('updated_at')
+            .notNull()
+            .default(sql`(unixepoch() * 1000)`),
+    },
+    (table) => [
+        primaryKey({ columns: [table.id, table.locale] }),
+        index('translated_strings_string_folded_idx').on(table.stringFolded),
+    ],
+)
+
+export const recipesTranslated = sqliteTable(
+    'recipes_translated',
+    {
+        recipeId: text('recipe_id').notNull().$type<RecipeId>(),
+        unitCode: text('unit_code', { enum: ['title', 'notes'] }).notNull(),
+        translatedStringId: text('translated_string_id')
+            .notNull()
+            .$type<TranslatedStringGroupId>(),
+    },
+    (table) => [
+        primaryKey({ columns: [table.recipeId, table.unitCode] }),
+        foreignKey({
+            columns: [table.recipeId],
+            foreignColumns: [recipes.id],
+        }).onDelete('cascade'),
+    ],
+)
+
+export const recipeStepsTranslated = sqliteTable(
+    'recipe_steps_translated',
+    {
+        recipeStepId: text('recipe_step_id').notNull().$type<RecipeStepId>(),
+        unitCode: text('unit_code', { enum: ['text'] }).notNull(),
+        translatedStringId: text('translated_string_id')
+            .notNull()
+            .$type<TranslatedStringGroupId>(),
+    },
+    (table) => [
+        primaryKey({ columns: [table.recipeStepId, table.unitCode] }),
+        foreignKey({
+            columns: [table.recipeStepId],
+            foreignColumns: [recipeSteps.id],
+        }).onDelete('cascade'),
+    ],
+)
+
+export const ingredientsTranslated = sqliteTable(
+    'ingredients_translated',
+    {
+        ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
+        unitCode: text('unit_code', { enum: ['canonical'] }).notNull(),
+        translatedStringId: text('translated_string_id')
+            .notNull()
+            .$type<TranslatedStringGroupId>(),
+    },
+    (table) => [
+        primaryKey({ columns: [table.ingredientId, table.unitCode] }),
+        foreignKey({
+            columns: [table.ingredientId],
+            foreignColumns: [ingredients.id],
+        }).onDelete('cascade'),
+    ],
+)
+
+export const cuisinesTranslated = sqliteTable(
+    'cuisines_translated',
+    {
+        cuisineKey: text('cuisine_key').notNull().$type<CuisineKey>(),
+        unitCode: text('unit_code', { enum: ['label'] }).notNull(),
+        translatedStringId: text('translated_string_id')
+            .notNull()
+            .$type<TranslatedStringGroupId>(),
+    },
+    (table) => [
+        primaryKey({ columns: [table.cuisineKey, table.unitCode] }),
+        foreignKey({
+            columns: [table.cuisineKey],
+            foreignColumns: [cuisines.key],
+        }).onDelete('cascade'),
+    ],
+)
+
+export const ingredientsAliases = sqliteTable(
+    'ingredients_aliases',
+    {
+        id: text('id')
+            .primaryKey()
+            .$type<IngredientsAliasId>()
+            .$defaultFn(() => newIngredientsAliasId()),
+        ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
+        translatedStringId: text('translated_string_id')
+            .notNull()
+            .$type<TranslatedStringGroupId>(),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.ingredientId],
+            foreignColumns: [ingredients.id],
+        }).onDelete('cascade'),
+    ],
+)
+
+export const ingredientLookupFolded = sqliteTable(
+    'ingredient_lookup_folded',
+    {
+        stringFolded: text('string_folded').primaryKey().notNull(),
+        kind: text('kind', { enum: ['canonical', 'alias'] }).notNull(),
+        ingredientId: text('ingredient_id').notNull().$type<IngredientId>(),
+        translatedStringId: text('translated_string_id')
+            .notNull()
+            .$type<TranslatedStringGroupId>(),
+        locale: text('locale', { enum: ['de', 'en'] }).notNull(),
+    },
+    (table) => [
+        foreignKey({
+            columns: [table.ingredientId],
+            foreignColumns: [ingredients.id],
+        }).onDelete('cascade'),
+        index('ingredient_lookup_folded_ingredient_idx').on(table.ingredientId),
     ],
 )

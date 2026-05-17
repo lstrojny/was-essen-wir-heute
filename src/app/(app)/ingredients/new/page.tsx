@@ -5,10 +5,11 @@ import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { IngredientForm, type IngredientFormInitial } from '../IngredientForm'
 
+export const dynamic = 'force-dynamic'
+
 const EMPTY: IngredientFormInitial = {
     id: null,
-    canonicalDe: '',
-    canonicalEn: '',
+    canonical: {},
     role: 'none',
     density: '',
     notes: '',
@@ -17,7 +18,7 @@ const EMPTY: IngredientFormInitial = {
 }
 
 export default async function NewIngredientPage() {
-    await requireSetupOrSession()
+    const session = await requireSetupOrSession()
     const t = await getTranslations()
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
@@ -25,7 +26,10 @@ export default async function NewIngredientPage() {
                 <Typography variant="h4">
                     {t('ingredients.form.newTitle')}
                 </Typography>
-                <IngredientForm initialValues={EMPTY} />
+                <IngredientForm
+                    initialValues={EMPTY}
+                    activeLanguage={session.user.language}
+                />
             </Stack>
         </Container>
     )

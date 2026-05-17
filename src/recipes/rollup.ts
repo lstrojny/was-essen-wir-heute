@@ -1,10 +1,10 @@
 import type { RecipeId } from '@/db/ids'
+import type { LocaleMap } from '@/i18n/locale'
 import type { RecipeDetail } from './queries'
 
 export type RolledUpRecipe = {
     id: RecipeId
-    titleDe: string | null
-    titleEn: string | null
+    title: LocaleMap
     ownIngredients: RecipeDetail['ingredients']
     ownSteps: RecipeDetail['steps']
     ownActiveTimeMinutes: number

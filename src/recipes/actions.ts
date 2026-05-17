@@ -11,7 +11,9 @@ import {
     parseCuisineKey,
     parseIngredientId,
     parseRecipeId,
+    parseRecipeStepId,
     type RecipeId,
+    type RecipeStepId,
 } from '@/db/ids'
 import {
     ingredients,
@@ -20,13 +22,22 @@ import {
     recipeSteps,
     recipes,
 } from '@/db/schema'
-import { resolveLocale } from '@/i18n/locale'
-import { foldForMatch } from '@/ingredients/name-match'
+import type { Locale, LocaleMap } from '@/i18n/locale'
+import { resolveLocale } from '@/i18n/resolve-locale'
+import { mergeLocaleMap, resolveText } from '@/i18n/translatable'
+import { findIngredientByName } from '@/ingredients/queries'
+import { writeIngredientCanonical } from '@/ingredients/translation-writes'
 import {
     findDirectChildrenForMany,
-    findIngredientByName,
     findRecipesReferencing,
+    getRecipe,
 } from './queries'
+import {
+    deleteRecipeTranslationGroups,
+    deleteStepTranslationGroupsForRecipe,
+    writeRecipeStepTranslation,
+    writeRecipeTranslationUnit,
+} from './translation-writes'
 
 type FieldsErrorKey =
     | 'titleRequired'
@@ -131,20 +142,29 @@ function parseIngredients(data: FormData): ParsedIngredient[] | FieldsErrorKey {
     return out
 }
 
-type ParsedStep = { textDe: string | null; textEn: string | null }
+type ParsedStep = {
+    existingId: RecipeStepId | null
+    text: LocaleMap
+}
 
-function parseSteps(data: FormData): ParsedStep[] | FieldsErrorKey {
-    const de = readAllStrings(data, 'stepDe')
-    const en = readAllStrings(data, 'stepEn')
-    const length = Math.max(de.length, en.length)
+function parseSteps(
+    data: FormData,
+    activeLocale: Locale,
+): ParsedStep[] | FieldsErrorKey {
+    const texts = readAllStrings(data, 'step')
+    const ids = readAllStrings(data, 'stepId')
+    const length = Math.max(texts.length, ids.length)
     const out: ParsedStep[] = []
     for (let i = 0; i < length; i++) {
-        const d = (de[i] ?? '').trim()
-        const e = (en[i] ?? '').trim()
-        if (d === '' && e === '') {
+        const trimmed = (texts[i] ?? '').trim()
+        const rawId = (ids[i] ?? '').trim()
+        const existingId = rawId === '' ? null : parseRecipeStepId(rawId)
+        if (trimmed === '' && existingId === null) {
             continue
         }
-        out.push({ textDe: d === '' ? null : d, textEn: e === '' ? null : e })
+        const text: LocaleMap = {}
+        if (trimmed !== '') text[activeLocale] = trimmed
+        out.push({ existingId, text })
     }
     return out
 }
@@ -161,10 +181,8 @@ function parseComponents(data: FormData): RecipeId[] {
 }
 
 type WriteFields = {
-    titleDe: string | null
-    titleEn: string | null
-    notesDe: string | null
-    notesEn: string | null
+    title: LocaleMap
+    notes: LocaleMap
     cuisineKey: CuisineKey
     activeTimeMinutes: number
     waitTimeMinutes: number
@@ -174,12 +192,16 @@ type WriteFields = {
     components: RecipeId[]
 }
 
-function readFormFields(data: FormData): WriteFields | FieldsErrorKey {
-    const titleDe = readOptionalString(data, 'titleDe')
-    const titleEn = readOptionalString(data, 'titleEn')
-    if (!titleDe && !titleEn) {
-        return 'titleRequired'
-    }
+function readFormFields(
+    data: FormData,
+    activeLocale: Locale,
+): WriteFields | FieldsErrorKey {
+    const titleActive = readOptionalString(data, 'title') ?? ''
+    const title: LocaleMap = {}
+    if (titleActive !== '') title[activeLocale] = titleActive
+    const notesActive = readOptionalString(data, 'notes') ?? ''
+    const notes: LocaleMap = {}
+    if (notesActive !== '') notes[activeLocale] = notesActive
     const cuisineKey = parseCuisineKey(readString(data, 'cuisineKey'))
     if (!cuisineKey) {
         return 'pickCuisine'
@@ -211,15 +233,13 @@ function readFormFields(data: FormData): WriteFields | FieldsErrorKey {
             ? ing
             : { ...ing, amount: ing.amount / formServings },
     )
-    const steps = parseSteps(data)
+    const steps = parseSteps(data, activeLocale)
     if (!Array.isArray(steps)) {
         return steps
     }
     return {
-        titleDe,
-        titleEn,
-        notesDe: readOptionalString(data, 'notesDe'),
-        notesEn: readOptionalString(data, 'notesEn'),
+        title,
+        notes,
         cuisineKey,
         activeTimeMinutes: activeTime,
         waitTimeMinutes: waitTime,
@@ -253,7 +273,7 @@ function wouldCreateCycle(parentId: RecipeId, childId: RecipeId): boolean {
 
 function resolveOrCreateIngredients(
     rows: ParsedIngredient[],
-    activeLanguage: 'de' | 'en',
+    activeLanguage: Locale,
 ): ParsedIngredient[] {
     return rows.map((ing) => {
         if (ing.ingredientId) {
@@ -267,20 +287,18 @@ function resolveOrCreateIngredients(
         if (existing) {
             return { ...ing, ingredientId: existing }
         }
-        const folded = foldForMatch(trimmedName)
         const inserted = db
             .insert(ingredients)
             .values({
-                canonicalDe: activeLanguage === 'de' ? trimmedName : null,
-                canonicalEn: activeLanguage === 'en' ? trimmedName : null,
-                canonicalDeFolded: activeLanguage === 'de' ? folded : null,
-                canonicalEnFolded: activeLanguage === 'en' ? folded : null,
                 role: 'none',
                 density: null,
                 notes: null,
             })
             .returning({ id: ingredients.id })
             .get()
+        writeIngredientCanonical(inserted.id, {
+            [activeLanguage]: trimmedName,
+        })
         return { ...ing, ingredientId: inserted.id }
     })
 }
@@ -289,8 +307,10 @@ function writeChildRows(
     id: RecipeId,
     fields: WriteFields,
     mode: 'insert' | 'replace',
+    existingStepTexts: Map<RecipeStepId, LocaleMap>,
 ) {
     if (mode === 'replace') {
+        deleteStepTranslationGroupsForRecipe(id)
         db.delete(recipeIngredients)
             .where(eq(recipeIngredients.recipeId, id))
             .run()
@@ -314,16 +334,25 @@ function writeChildRows(
             .run()
     }
     if (fields.steps.length) {
-        db.insert(recipeSteps)
+        const inserted = db
+            .insert(recipeSteps)
             .values(
-                fields.steps.map((step, position) => ({
+                fields.steps.map((_step, position) => ({
                     recipeId: id,
                     position,
-                    textDe: step.textDe,
-                    textEn: step.textEn,
                 })),
             )
-            .run()
+            .returning({ id: recipeSteps.id, position: recipeSteps.position })
+            .all()
+        inserted.sort((a, b) => a.position - b.position)
+        for (const [i, row] of inserted.entries()) {
+            const parsed = fields.steps[i]
+            const prior = parsed.existingId
+                ? (existingStepTexts.get(parsed.existingId) ?? {})
+                : {}
+            const merged = mergeLocaleMap(prior, parsed.text)
+            writeRecipeStepTranslation(row.id, merged)
+        }
     }
     if (fields.components.length) {
         db.insert(recipeComponents)
@@ -354,13 +383,16 @@ export async function createRecipeAction(
 ): Promise<RecipeFormState> {
     await requireSetupOrSession()
     const tErr = await getTranslations('errors')
-    const fields = readFormFields(data)
+    const activeLanguage = await resolveLocale()
+    const fields = readFormFields(data, activeLanguage)
     if (typeof fields === 'string') {
         return { error: tErr(fields) }
     }
+    if (Object.keys(fields.title).length === 0) {
+        return { error: tErr('titleRequired') }
+    }
     const source = readSource(data)
     const sourceIdentifier = readString(data, 'sourceIdentifier') || null
-    const activeLanguage = await resolveLocale()
     let newId: RecipeId | undefined
     db.transaction(() => {
         fields.ingredients = resolveOrCreateIngredients(
@@ -370,10 +402,6 @@ export async function createRecipeAction(
         const inserted = db
             .insert(recipes)
             .values({
-                titleDe: fields.titleDe,
-                titleEn: fields.titleEn,
-                notesDe: fields.notesDe,
-                notesEn: fields.notesEn,
                 cuisineKey: fields.cuisineKey,
                 activeTimeMinutes: fields.activeTimeMinutes,
                 waitTimeMinutes: fields.waitTimeMinutes,
@@ -385,7 +413,9 @@ export async function createRecipeAction(
             .get()
         const id = inserted.id
         newId = id
-        writeChildRows(id, fields, 'insert')
+        writeRecipeTranslationUnit(id, 'title', fields.title)
+        writeRecipeTranslationUnit(id, 'notes', fields.notes)
+        writeChildRows(id, fields, 'insert', new Map())
     })
     if (!newId) {
         return { error: tErr('insertFailed') }
@@ -404,16 +434,13 @@ export async function updateRecipeAction(
     if (!id) {
         return { error: tErr('invalidRecipe') }
     }
-    const fields = readFormFields(data)
+    const activeLanguage = await resolveLocale()
+    const fields = readFormFields(data, activeLanguage)
     if (typeof fields === 'string') {
         return { error: tErr(fields) }
     }
-    const existing = db
-        .select({ id: recipes.id })
-        .from(recipes)
-        .where(eq(recipes.id, id))
-        .get()
-    if (!existing) {
+    const existingDetail = getRecipe(id)
+    if (!existingDetail) {
         return { error: tErr('recipeNotFound') }
     }
     for (const childId of fields.components) {
@@ -424,7 +451,23 @@ export async function updateRecipeAction(
             return { error: tErr('componentCycle') }
         }
     }
-    const activeLanguage = await resolveLocale()
+    const mergedTitle = mergeForActiveLocale(
+        existingDetail.title,
+        fields.title,
+        activeLanguage,
+    )
+    if (Object.keys(mergedTitle).length === 0) {
+        return { error: tErr('titleRequired') }
+    }
+    const mergedNotes = mergeForActiveLocale(
+        existingDetail.notes,
+        fields.notes,
+        activeLanguage,
+    )
+    const existingStepTexts = new Map<RecipeStepId, LocaleMap>()
+    for (const step of existingDetail.steps) {
+        existingStepTexts.set(step.id, step.text)
+    }
     db.transaction(() => {
         fields.ingredients = resolveOrCreateIngredients(
             fields.ingredients,
@@ -432,10 +475,6 @@ export async function updateRecipeAction(
         )
         db.update(recipes)
             .set({
-                titleDe: fields.titleDe,
-                titleEn: fields.titleEn,
-                notesDe: fields.notesDe,
-                notesEn: fields.notesEn,
                 cuisineKey: fields.cuisineKey,
                 activeTimeMinutes: fields.activeTimeMinutes,
                 waitTimeMinutes: fields.waitTimeMinutes,
@@ -444,9 +483,33 @@ export async function updateRecipeAction(
             })
             .where(eq(recipes.id, id))
             .run()
-        writeChildRows(id, fields, 'replace')
+        writeRecipeTranslationUnit(id, 'title', mergedTitle)
+        writeRecipeTranslationUnit(id, 'notes', mergedNotes)
+        writeChildRows(id, fields, 'replace', existingStepTexts)
     })
     return { success: tForm('saved') }
+}
+
+/**
+ * Build the locale map to write for a single translatable field, given:
+ *   - the existing map persisted in the DB,
+ *   - the form's partial map (carrying only the active locale's new value, or
+ *     empty if the user cleared it),
+ *   - the active locale.
+ *
+ * Non-active locales are preserved from the existing map. The active locale
+ * is set to the new value if non-empty, otherwise removed.
+ */
+function mergeForActiveLocale(
+    existing: LocaleMap,
+    formPatch: LocaleMap,
+    activeLocale: Locale,
+): LocaleMap {
+    const next = mergeLocaleMap(existing, formPatch)
+    if (formPatch[activeLocale] === undefined) {
+        delete next[activeLocale]
+    }
+    return next
 }
 
 export async function copyRecipeAction(data: FormData): Promise<void> {
@@ -455,12 +518,8 @@ export async function copyRecipeAction(data: FormData): Promise<void> {
     if (!sourceId) {
         redirect('/recipes')
     }
-    const source = db
-        .select()
-        .from(recipes)
-        .where(eq(recipes.id, sourceId))
-        .get()
-    if (!source) {
+    const sourceDetail = getRecipe(sourceId)
+    if (!sourceDetail) {
         redirect('/recipes')
     }
     const sourceIngredients = db
@@ -468,24 +527,16 @@ export async function copyRecipeAction(data: FormData): Promise<void> {
         .from(recipeIngredients)
         .where(eq(recipeIngredients.recipeId, sourceId))
         .all()
-    const sourceSteps = db
-        .select()
-        .from(recipeSteps)
-        .where(eq(recipeSteps.recipeId, sourceId))
-        .all()
+    const sourceSteps = sourceDetail.steps
     let newId: RecipeId | undefined
     db.transaction(() => {
         const inserted = db
             .insert(recipes)
             .values({
-                titleDe: source.titleDe,
-                titleEn: source.titleEn,
-                notesDe: source.notesDe,
-                notesEn: source.notesEn,
-                cuisineKey: source.cuisineKey,
-                activeTimeMinutes: source.activeTimeMinutes,
-                waitTimeMinutes: source.waitTimeMinutes,
-                isCompleteMeal: source.isCompleteMeal,
+                cuisineKey: sourceDetail.cuisineKey,
+                activeTimeMinutes: sourceDetail.activeTimeMinutes,
+                waitTimeMinutes: sourceDetail.waitTimeMinutes,
+                isCompleteMeal: sourceDetail.isCompleteMeal,
                 source: 'manual',
                 sourceIdentifier: null,
             })
@@ -493,6 +544,8 @@ export async function copyRecipeAction(data: FormData): Promise<void> {
             .get()
         const id = inserted.id
         newId = id
+        writeRecipeTranslationUnit(id, 'title', sourceDetail.title)
+        writeRecipeTranslationUnit(id, 'notes', sourceDetail.notes)
         if (sourceIngredients.length) {
             db.insert(recipeIngredients)
                 .values(
@@ -508,16 +561,26 @@ export async function copyRecipeAction(data: FormData): Promise<void> {
                 .run()
         }
         if (sourceSteps.length) {
-            db.insert(recipeSteps)
+            const inserted = db
+                .insert(recipeSteps)
                 .values(
                     sourceSteps.map((row) => ({
                         recipeId: id,
                         position: row.position,
-                        textDe: row.textDe,
-                        textEn: row.textEn,
                     })),
                 )
-                .run()
+                .returning({
+                    id: recipeSteps.id,
+                    position: recipeSteps.position,
+                })
+                .all()
+            inserted.sort((a, b) => a.position - b.position)
+            const sortedSource = [...sourceSteps].sort(
+                (a, b) => a.position - b.position,
+            )
+            for (const [i, row] of inserted.entries()) {
+                writeRecipeStepTranslation(row.id, sortedSource[i].text)
+            }
         }
     })
     redirect(newId ? `/recipes/${newId}` : '/recipes')
@@ -537,16 +600,15 @@ export async function deleteRecipeAction(
     const referencing = findRecipesReferencing(id)
     if (referencing.length > 0) {
         const titles = referencing
-            .map((r) => {
-                const primary = locale === 'de' ? r.titleDe : r.titleEn
-                const fallback = locale === 'de' ? r.titleEn : r.titleDe
-                return primary ?? fallback ?? '(?)'
-            })
+            .map((r) => resolveText(r.title, locale)?.text ?? '(?)')
             .join(', ')
         return {
             error: tErr('recipeReferencedByComposites', { titles }),
         }
     }
-    db.delete(recipes).where(eq(recipes.id, id)).run()
+    db.transaction(() => {
+        deleteRecipeTranslationGroups(id)
+        db.delete(recipes).where(eq(recipes.id, id)).run()
+    })
     redirect('/recipes')
 }

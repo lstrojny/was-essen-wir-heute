@@ -2,9 +2,10 @@ import Container from '@mui/material/Container'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { notFound } from 'next/navigation'
-import { getLocale, getTranslations } from 'next-intl/server'
+import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { parseIngredientId } from '@/db/ids'
+import { resolveText } from '@/i18n/translatable'
 import { getIngredient } from '@/ingredients/queries'
 import { findRecipesUsingIngredient, listCuisines } from '@/recipes/queries'
 import { IngredientForm, type IngredientFormInitial } from '../IngredientForm'
@@ -15,9 +16,9 @@ export default async function EditIngredientPage({
 }: {
     params: Promise<{ id: string }>
 }) {
-    await requireSetupOrSession()
+    const session = await requireSetupOrSession()
     const t = await getTranslations()
-    const locale = await getLocale()
+    const locale = session.user.language
     const { id: idStr } = await params
     const id = parseIngredientId(idStr)
     if (!id) {
@@ -27,37 +28,37 @@ export default async function EditIngredientPage({
     if (!ingredient) {
         notFound()
     }
-    const primary =
-        locale === 'de' ? ingredient.canonicalDe : ingredient.canonicalEn
-    const fallback =
-        locale === 'de' ? ingredient.canonicalEn : ingredient.canonicalDe
-    const title = primary ?? fallback ?? t('ingredients.unnamed')
+    const title =
+        resolveText(ingredient.canonical, locale)?.text ??
+        t('ingredients.unnamed')
     const initialValues: IngredientFormInitial = {
         id: ingredient.id,
-        canonicalDe: ingredient.canonicalDe ?? '',
-        canonicalEn: ingredient.canonicalEn ?? '',
+        canonical: ingredient.canonical,
         role: ingredient.role,
         density: ingredient.density === null ? '' : String(ingredient.density),
         notes: ingredient.notes ?? '',
-        aliases: ingredient.aliases,
+        aliases: ingredient.aliases.map((a) => ({ id: a.id, text: a.text })),
         countUnits: ingredient.countUnits.map((cu) => ({
             unit: cu.unit,
             gramsPerUnit: String(cu.gramsPerUnit),
         })),
     }
     const usedIn = findRecipesUsingIngredient(ingredient.id)
-    const cuisines = listCuisines()
+    const cuisines = listCuisines(locale)
     const cuisineLabels = Object.fromEntries(
-        cuisines.map((c) => [c.key, locale === 'de' ? c.labelDe : c.labelEn]),
+        cuisines.map((c) => [c.key, c.label]),
     )
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
             <Stack spacing={3}>
                 <Typography variant="h4">{title}</Typography>
-                <IngredientForm initialValues={initialValues} />
+                <IngredientForm
+                    initialValues={initialValues}
+                    activeLanguage={locale}
+                />
                 <UsedInRecipes
                     rows={usedIn}
-                    activeLanguage={locale === 'de' ? 'de' : 'en'}
+                    activeLanguage={locale}
                     cuisineLabels={cuisineLabels}
                 />
             </Stack>

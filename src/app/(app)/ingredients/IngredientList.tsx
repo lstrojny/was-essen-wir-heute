@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useFormatter, useTranslations } from 'next-intl'
+import { resolveText } from '@/i18n/translatable'
 import type { IngredientListRow } from '@/ingredients/queries'
 
 const ROLE_COLORS: Record<
@@ -31,12 +32,9 @@ export function IngredientList({
     return (
         <Stack spacing={1.5}>
             {rows.map((row) => {
-                const primary =
-                    activeLanguage === 'de' ? row.canonicalDe : row.canonicalEn
-                const fallback =
-                    activeLanguage === 'de' ? row.canonicalEn : row.canonicalDe
-                const display = primary ?? fallback ?? t('ingredients.unnamed')
-                const untranslated = primary === null
+                const resolved = resolveText(row.canonical, activeLanguage)
+                const display = resolved?.text ?? t('ingredients.unnamed')
+                const untranslated = resolved?.isFallback ?? true
                 const summaryParts = [
                     t('ingredients.aliasCount', { count: row.aliasCount }),
                     t('ingredients.countUnitCount', {

@@ -1,18 +1,24 @@
-import { and, asc, eq, ne, or, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '@/db'
-import type { IngredientId } from '@/db/ids'
+import type { IngredientId, IngredientsAliasId } from '@/db/ids'
 import {
-    ingredientAliases,
     ingredientCountUnits,
     ingredients,
+    ingredientsAliases,
+    ingredientsTranslated,
     recipeIngredients,
+    translatedStrings,
 } from '@/db/schema'
+import type { Locale, LocaleMap } from '@/i18n/locale'
+import { DEFAULT_LOCALE } from '@/i18n/locale'
+import { resolveText } from '@/i18n/translatable'
+import { readAllLocalesByGroup } from '@/i18n/translations'
 import { foldForMatch } from './name-match'
+import { findFoldedNameOwner } from './translation-writes'
 
 export type IngredientListRow = {
     id: IngredientId
-    canonicalDe: string | null
-    canonicalEn: string | null
+    canonical: LocaleMap
     role: 'starch' | 'vegetable' | 'protein' | 'none'
     density: number | null
     aliasCount: number
@@ -23,24 +29,19 @@ export function listIngredients(
     search: string,
     unusedOnly = false,
 ): IngredientListRow[] {
-    // Load everything; filter in JS so Unicode case-folding works (SQLite's
-    // built-in lower() is ASCII-only, so "Olivenöl" LIKE "%öl%" misses the
-    // capital "Ö" case). Catalog is family-sized; this is fine.
     const rows = db
         .select({
             id: ingredients.id,
-            canonicalDe: ingredients.canonicalDe,
-            canonicalEn: ingredients.canonicalEn,
             role: ingredients.role,
             density: ingredients.density,
-            aliasCount: sql<number>`count(distinct ${ingredientAliases.id})`,
+            aliasCount: sql<number>`count(distinct ${ingredientsAliases.id})`,
             countUnitCount: sql<number>`count(distinct ${ingredientCountUnits.id})`,
             recipeUseCount: sql<number>`count(distinct ${recipeIngredients.id})`,
         })
         .from(ingredients)
         .leftJoin(
-            ingredientAliases,
-            eq(ingredientAliases.ingredientId, ingredients.id),
+            ingredientsAliases,
+            eq(ingredientsAliases.ingredientId, ingredients.id),
         )
         .leftJoin(
             ingredientCountUnits,
@@ -51,62 +52,83 @@ export function listIngredients(
             eq(recipeIngredients.ingredientId, ingredients.id),
         )
         .groupBy(ingredients.id)
-        .orderBy(asc(ingredients.canonicalEn), asc(ingredients.canonicalDe))
         .all()
 
     const filteredByUse = unusedOnly
         ? rows.filter((r) => r.recipeUseCount === 0)
         : rows
+    if (filteredByUse.length === 0) return []
 
+    const ids = filteredByUse.map((r) => r.id)
+    const canonicals = resolveIngredientCanonicals(ids)
+    const aliasesByIngredient = readAliasesByIngredient(ids)
+
+    let candidates = filteredByUse
     const trimmed = search.trim()
-    if (!trimmed) return filteredByUse
-
-    const needle = foldForMatch(trimmed)
-    const aliasesById = new Map<IngredientId, string[]>()
-    for (const a of db.select().from(ingredientAliases).all()) {
-        const list = aliasesById.get(a.ingredientId) ?? []
-        list.push(a.alias)
-        aliasesById.set(a.ingredientId, list)
+    if (trimmed) {
+        const needle = foldForMatch(trimmed)
+        candidates = filteredByUse.filter((row) => {
+            const haystackParts: string[] = []
+            const canonical = canonicals.get(row.id)
+            if (canonical) {
+                for (const value of Object.values(canonical)) {
+                    if (value) haystackParts.push(value)
+                }
+            }
+            for (const alias of aliasesByIngredient.get(row.id) ?? []) {
+                for (const value of Object.values(alias.text)) {
+                    if (value) haystackParts.push(value)
+                }
+            }
+            return foldForMatch(haystackParts.join(' ')).includes(needle)
+        })
     }
-    return filteredByUse.filter((row) => {
-        const haystack = foldForMatch(
-            [
-                row.canonicalDe ?? '',
-                row.canonicalEn ?? '',
-                ...(aliasesById.get(row.id) ?? []),
-            ].join(' '),
-        )
-        return haystack.includes(needle)
-    })
+
+    candidates.sort((a, b) =>
+        compareByCanonical(canonicals.get(a.id), canonicals.get(b.id)),
+    )
+    return candidates.map((row) => ({
+        id: row.id,
+        canonical: canonicals.get(row.id) ?? {},
+        role: row.role,
+        density: row.density,
+        aliasCount: row.aliasCount,
+        countUnitCount: row.countUnitCount,
+    }))
+}
+
+export type IngredientAliasRow = {
+    id: IngredientsAliasId
+    text: LocaleMap
 }
 
 export type IngredientDetail = {
     id: IngredientId
-    canonicalDe: string | null
-    canonicalEn: string | null
+    canonical: LocaleMap
     role: 'starch' | 'vegetable' | 'protein' | 'none'
     density: number | null
     notes: string | null
-    aliases: string[]
+    aliases: IngredientAliasRow[]
     countUnits: Array<{ unit: string; gramsPerUnit: number }>
 }
 
 export function getIngredient(id: IngredientId): IngredientDetail | null {
     const row = db
-        .select()
+        .select({
+            id: ingredients.id,
+            role: ingredients.role,
+            density: ingredients.density,
+            notes: ingredients.notes,
+        })
         .from(ingredients)
         .where(eq(ingredients.id, id))
         .get()
     if (!row) {
         return null
     }
-    const aliases = db
-        .select({ alias: ingredientAliases.alias })
-        .from(ingredientAliases)
-        .where(eq(ingredientAliases.ingredientId, id))
-        .orderBy(asc(ingredientAliases.alias))
-        .all()
-        .map((r) => r.alias)
+    const canonical = resolveIngredientCanonicals([id]).get(id) ?? {}
+    const aliases = readAliasesByIngredient([id]).get(id) ?? []
+    aliases.sort((a, b) => compareByCanonical(a.text, b.text))
     const countUnits = db
         .select({
             unit: ingredientCountUnits.unit,
@@ -118,14 +140,72 @@ export function getIngredient(id: IngredientId): IngredientDetail | null {
         .all()
     return {
         id: row.id,
-        canonicalDe: row.canonicalDe,
-        canonicalEn: row.canonicalEn,
+        canonical,
         role: row.role,
         density: row.density,
         notes: row.notes,
         aliases,
         countUnits,
     }
+}
+
+function resolveIngredientCanonicals(
+    ids: IngredientId[],
+): Map<IngredientId, LocaleMap> {
+    if (ids.length === 0) return new Map()
+    const links = db
+        .select({
+            ingredientId: ingredientsTranslated.ingredientId,
+            groupId: ingredientsTranslated.translatedStringId,
+        })
+        .from(ingredientsTranslated)
+        .where(
+            and(
+                inArray(ingredientsTranslated.ingredientId, ids),
+                eq(ingredientsTranslated.unitCode, 'canonical'),
+            ),
+        )
+        .all()
+    const byGroup = readAllLocalesByGroup(links.map((l) => l.groupId))
+    const out = new Map<IngredientId, LocaleMap>()
+    for (const l of links) {
+        const locales = byGroup.get(l.groupId)
+        if (locales) out.set(l.ingredientId, locales)
+    }
+    return out
+}
+
+function readAliasesByIngredient(
+    ids: IngredientId[],
+): Map<IngredientId, IngredientAliasRow[]> {
+    if (ids.length === 0) return new Map()
+    const links = db
+        .select({
+            id: ingredientsAliases.id,
+            ingredientId: ingredientsAliases.ingredientId,
+            groupId: ingredientsAliases.translatedStringId,
+        })
+        .from(ingredientsAliases)
+        .where(inArray(ingredientsAliases.ingredientId, ids))
+        .all()
+    const byGroup = readAllLocalesByGroup(links.map((l) => l.groupId))
+    const out = new Map<IngredientId, IngredientAliasRow[]>()
+    for (const l of links) {
+        const text = byGroup.get(l.groupId) ?? {}
+        const list = out.get(l.ingredientId) ?? []
+        list.push({ id: l.id, text })
+        out.set(l.ingredientId, list)
+    }
+    return out
+}
+
+function compareByCanonical(
+    a: LocaleMap | undefined,
+    b: LocaleMap | undefined,
+): number {
+    const aText = resolveText(a ?? {}, DEFAULT_LOCALE)?.text ?? ''
+    const bText = resolveText(b ?? {}, DEFAULT_LOCALE)?.text ?? ''
+    return aText.localeCompare(bText)
 }
 
 export type AliasConflict = {
@@ -139,35 +219,22 @@ export type AliasConflict = {
 }
 
 /**
- * Returns the first proposed alias that collides with anything in the
- * catalog, or null if none collide. Uses `foldForMatch` so umlaut-only,
- * digraph-only, or diacritic-only differences are caught.
- *
- * Collisions:
- *  - the proposed alias matches an alias on another ingredient
- *    (`alias-on-other-ingredient`)
- *  - the proposed alias matches the canonical name (DE or EN) of another
- *    ingredient (`canonical-on-other-ingredient`)
- *  - the proposed alias matches the *same ingredient's* own canonical name
- *    — redundant, since the canonical is already a match
- *    (`canonical-on-same-ingredient`)
+ * Find the first proposed alias that collides with any existing canonical or
+ * alias across the catalog. Compares via `foldForMatch`. Backed by the
+ * `ingredient_lookup_folded` shadow plus the active ingredient's own
+ * canonical (folded) for the same-ingredient redundancy check.
  *
  * `excludeIngredientId` is the ingredient currently being edited (null on
- * create). Its existing aliases are skipped (so re-saving the same alias
- * does not flag itself), but its canonicals are NOT skipped — we want to
- * flag "alias equals own canonical" as redundant.
- */
-/**
- * Indexed lookup: for each proposed alias, run two equality queries against
- * the folded columns. With unique/btree indexes on `ingredient_aliases.alias_folded`,
- * `ingredients.canonical_de_folded`, `ingredients.canonical_en_folded` this is
- * O(log n) per probe.
+ * create). Its existing rows are ignored in the cross-ingredient lookup
+ * (so re-saving the same alias does not flag itself), but its proposed
+ * canonical (`proposedCanonical`) is still checked for the
+ * "alias equals own canonical" redundancy.
  */
 export function findAliasConflict(
     proposed: string[],
     excludeIngredientId: IngredientId | null,
-    proposedCanonicalDe: string | null = null,
-    proposedCanonicalEn: string | null = null,
+    proposedCanonical: LocaleMap,
+    activeLocale: Locale,
 ): AliasConflict | null {
     if (proposed.length === 0) return null
 
@@ -181,20 +248,15 @@ export function findAliasConflict(
     }
     if (proposedFolds.length === 0) return null
 
-    // Pre-fold the live canonicals so we can catch "alias equals my own
-    // canonical" without a round-trip — the DB may not have them yet.
-    const selfCanonDe = proposedCanonicalDe
-        ? foldForMatch(proposedCanonicalDe)
-        : null
-    const selfCanonEn = proposedCanonicalEn
-        ? foldForMatch(proposedCanonicalEn)
-        : null
+    const selfCanonFolded = new Set<string>()
+    for (const value of Object.values(proposedCanonical)) {
+        if (!value) continue
+        const folded = foldForMatch(value)
+        if (folded) selfCanonFolded.add(folded)
+    }
 
     for (const { raw, folded } of proposedFolds) {
-        if (
-            (selfCanonDe && selfCanonDe === folded) ||
-            (selfCanonEn && selfCanonEn === folded)
-        ) {
+        if (selfCanonFolded.has(folded)) {
             return {
                 alias: raw,
                 reason: 'canonical-on-same-ingredient',
@@ -202,71 +264,37 @@ export function findAliasConflict(
                 ownerLabel: null,
             }
         }
-
-        // 1. Look up against canonical_*_folded indexes.
-        const canonicalHit = db
-            .select({
-                id: ingredients.id,
-                canonicalDe: ingredients.canonicalDe,
-                canonicalEn: ingredients.canonicalEn,
-            })
-            .from(ingredients)
-            .where(
-                or(
-                    eq(ingredients.canonicalDeFolded, folded),
-                    eq(ingredients.canonicalEnFolded, folded),
-                ),
-            )
-            .get()
-        if (canonicalHit) {
-            const sameRow = canonicalHit.id === excludeIngredientId
-            return {
-                alias: raw,
-                reason: sameRow
-                    ? 'canonical-on-same-ingredient'
-                    : 'canonical-on-other-ingredient',
-                ownerId: sameRow ? null : canonicalHit.id,
-                ownerLabel: sameRow
-                    ? null
-                    : (canonicalHit.canonicalEn ??
-                      canonicalHit.canonicalDe ??
-                      '(unnamed)'),
-            }
-        }
-
-        // 2. Look up against alias_folded (unique global index).
-        const aliasHit = db
-            .select({
-                ingredientId: ingredientAliases.ingredientId,
-                canonicalDe: ingredients.canonicalDe,
-                canonicalEn: ingredients.canonicalEn,
-            })
-            .from(ingredientAliases)
-            .innerJoin(
-                ingredients,
-                eq(ingredients.id, ingredientAliases.ingredientId),
-            )
-            .where(
-                excludeIngredientId !== null
-                    ? and(
-                          eq(ingredientAliases.aliasFolded, folded),
-                          ne(
-                              ingredientAliases.ingredientId,
-                              excludeIngredientId,
-                          ),
-                      )
-                    : eq(ingredientAliases.aliasFolded, folded),
-            )
-            .get()
-        if (aliasHit) {
-            return {
-                alias: raw,
-                reason: 'alias-on-other-ingredient',
-                ownerId: aliasHit.ingredientId,
-                ownerLabel:
-                    aliasHit.canonicalEn ?? aliasHit.canonicalDe ?? '(unnamed)',
-            }
+        const owner = findFoldedNameOwner(folded, excludeIngredientId)
+        if (!owner) continue
+        const label =
+            resolveText(
+                resolveIngredientCanonicals([owner.ingredientId]).get(
+                    owner.ingredientId,
+                ) ?? {},
+                activeLocale,
+            )?.text ?? '(unnamed)'
+        return {
+            alias: raw,
+            reason:
+                owner.kind === 'canonical'
+                    ? 'canonical-on-other-ingredient'
+                    : 'alias-on-other-ingredient',
+            ownerId: owner.ingredientId,
+            ownerLabel: label,
         }
     }
     return null
+}
+
+/**
+ * Indexed equality lookup on `ingredient_lookup_folded`. Used by the recipe
+ * form's "did the user type an existing ingredient" check. Returns the
+ * owning ingredient id, regardless of whether the match was on a canonical
+ * or alias row.
+ */
+export function findIngredientByName(name: string): IngredientId | null {
+    const needle = foldForMatch(name.trim())
+    if (!needle) return null
+    const hit = findFoldedNameOwner(needle, null)
+    return hit?.ingredientId ?? null
 }

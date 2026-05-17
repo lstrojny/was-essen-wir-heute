@@ -6,6 +6,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useFormatter, useTranslations } from 'next-intl'
+import { resolveText } from '@/i18n/translatable'
 import { flattenSections, type RolledUpRecipe } from '@/recipes/rollup'
 import { isKnownUnit } from '@/recipes/units'
 
@@ -14,9 +15,7 @@ function pickTitle(
     activeLanguage: 'de' | 'en',
     fallback: string,
 ): string {
-    const primary = activeLanguage === 'de' ? r.titleDe : r.titleEn
-    const other = activeLanguage === 'de' ? r.titleEn : r.titleDe
-    return primary ?? other ?? fallback
+    return resolveText(r.title, activeLanguage)?.text ?? fallback
 }
 
 export function ComposedView({
@@ -150,17 +149,13 @@ export function ComposedView({
                                 sx={{ pl: showSectionTitles ? 2 : 0 }}
                             >
                                 {section.ownSteps.map((step, index) => {
-                                    const primary =
-                                        activeLanguage === 'de'
-                                            ? step.textDe
-                                            : step.textEn
-                                    const fallback =
-                                        activeLanguage === 'de'
-                                            ? step.textEn
-                                            : step.textDe
-                                    const text = primary ?? fallback ?? ''
+                                    const resolved = resolveText(
+                                        step.text,
+                                        activeLanguage,
+                                    )
+                                    const text = resolved?.text ?? ''
                                     const isFallback =
-                                        primary === null && fallback !== null
+                                        resolved?.isFallback ?? false
                                     return (
                                         <Box
                                             key={step.id}

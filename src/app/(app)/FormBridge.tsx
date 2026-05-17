@@ -8,27 +8,29 @@ import {
     useMemo,
     useRef,
 } from 'react'
-import type { IngredientId, RecipeId } from '@/db/ids'
+import type {
+    IngredientId,
+    IngredientsAliasId,
+    RecipeId,
+    RecipeStepId,
+} from '@/db/ids'
+import type { LocaleMap } from '@/i18n/locale'
 
 export type RecipeFormSnapshot = {
     id: RecipeId | null
-    titleDe: string
-    titleEn: string
-    notesDe: string
-    notesEn: string
+    title: LocaleMap
+    notes: LocaleMap
     cuisineKey: string
     activeTimeMinutes: string
     waitTimeMinutes: string
     isCompleteMeal: boolean
     ingredients: Array<{ amount: string; unit: string; name: string }>
-    steps: Array<{ textDe: string; textEn: string }>
+    steps: Array<{ id: RecipeStepId | null; text: LocaleMap }>
 }
 
 export type RecipeFormPatch = Partial<{
-    titleDe: string
-    titleEn: string
-    notesDe: string | null
-    notesEn: string | null
+    title: LocaleMap
+    notes: LocaleMap
     cuisineKey: string
     activeTimeMinutes: number
     waitTimeMinutes: number
@@ -38,27 +40,25 @@ export type RecipeFormPatch = Partial<{
         unit: string | null
         name: string
     }>
-    steps: Array<{ textDe: string | null; textEn: string | null }>
+    steps: Array<{ text: LocaleMap }>
 }>
 
 export type IngredientFormSnapshot = {
     id: IngredientId | null
-    canonicalDe: string
-    canonicalEn: string
+    canonical: LocaleMap
     role: 'starch' | 'vegetable' | 'protein' | 'none'
     density: string
     notes: string
-    aliases: string[]
+    aliases: Array<{ id: IngredientsAliasId | null; text: LocaleMap }>
     countUnits: Array<{ unit: string; gramsPerUnit: string }>
 }
 
 export type IngredientFormPatch = Partial<{
-    canonicalDe: string
-    canonicalEn: string
+    canonical: LocaleMap
     role: 'starch' | 'vegetable' | 'protein' | 'none'
     density: number | null
     notes: string | null
-    aliases: string[]
+    aliases: Array<{ text: LocaleMap }>
     countUnits: Array<{ unit: string; gramsPerUnit: number }>
 }>
 

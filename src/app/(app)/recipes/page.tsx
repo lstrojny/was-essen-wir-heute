@@ -24,13 +24,10 @@ export default async function RecipesPage({
     const q = (params.q ?? '').trim()
     const cuisineKey = params.cuisine ? parseCuisineKey(params.cuisine) : null
     const completeOnly = params.complete === '1'
-    const cuisines = listCuisines()
+    const cuisines = listCuisines(session.user.language)
     const rows = listRecipes(q, cuisineKey, completeOnly, session.user.id)
     const cuisineLabels = Object.fromEntries(
-        cuisines.map((c) => [
-            c.key,
-            session.user.language === 'de' ? c.labelDe : c.labelEn,
-        ]),
+        cuisines.map((c) => [c.key, c.label]),
     )
     return (
         <Container maxWidth="md" sx={{ py: 4 }}>
@@ -68,7 +65,6 @@ export default async function RecipesPage({
                     defaultCuisineKey={cuisineKey}
                     defaultCompleteOnly={completeOnly}
                     cuisines={cuisines}
-                    activeLanguage={session.user.language}
                 />
                 {rows.length === 0 ? (
                     <Paper sx={{ p: 3 }} variant="outlined">

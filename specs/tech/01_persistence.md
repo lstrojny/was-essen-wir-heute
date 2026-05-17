@@ -55,13 +55,38 @@ exact column names and types are settled at implementation.
 
 - **users** — one row per family member. Holds login credentials (see
   `04_auth.md`).
+- **translated_strings** — central table holding per-locale strings.
+  Columns: `id` (TEXT — a *group id*, not unique on its own),
+  `locale` (`de` | `en`), `string` (TEXT NOT NULL), `string_folded`
+  (TEXT — the NFC + de-locale lower-case + German digraph + diacritic-
+  stripped fold; populated for every row so a single btree index covers
+  name-equality lookups across every consumer). PK is `(id, locale)`.
+  The `id` groups locale variants of the same logical string. Absence
+  of a row for a locale means "no translation in that locale" — there
+  is no NULL-text state. App-side helpers mint a group id and insert
+  one row per locale present. Folded values are written from JS on
+  every insert/update so the algorithm matches across source and index;
+  a startup hook reconciles drift.
 - **recipes** — one row per recipe. Holds language-independent fields:
   active time, wait time, source kind + source identifier, cuisine key
   (FK to `cuisines`), `is_complete_meal` (INTEGER 0/1, default `0`).
-  Per-language text columns live on this row — see *Per-language
-  storage*.
-- **recipe_steps** — ordered list per recipe. The row carries the position
-  and **per-language text columns** (`text_de`, `text_en`).
+  Translatable title and notes are reached through `recipes_translated`
+  — see *Per-language storage*.
+- **recipes_translated** — join from a recipe to its translatable
+  strings. Columns: `recipe_id` (FK → `recipes(id)` ON DELETE CASCADE),
+  `unit_code` (`'title'` | `'notes'`), `translated_string_id` (group id
+  referencing `translated_strings.id`). PK is `(recipe_id, unit_code)`
+  — a recipe has at most one title group and one notes group.
+- **recipe_steps** — ordered list per recipe. The row carries the
+  position only; translatable step text is reached through
+  `recipe_steps_translated`.
+- **recipe_steps_translated** — join from a step to its translatable
+  text. Columns: `recipe_step_id` (FK → `recipe_steps(id)` ON DELETE
+  CASCADE), `unit_code` (`'text'`), `translated_string_id` (group id
+  referencing `translated_strings.id`). PK is
+  `(recipe_step_id, unit_code)`. The `unit_code` is structurally
+  singular today but kept for shape consistency with the other
+  `*_translated` tables.
 - **recipe_ingredients** — ordered list per recipe. Each row holds amount
   (REAL), unit (string), free-text name (string), and a nullable FK
   `ingredient_id` to `ingredients` for the linked row. Order is
@@ -77,29 +102,35 @@ exact column names and types are settled at implementation.
   the recipe row at read time (not denormalized).
 - **ingredients** — one row per ingredient catalog entry. Language-
   independent fields: role (enum: `starch`, `vegetable`, `protein`,
-  `none`), optional density (g/ml), notes. Per-language canonicals live
-  on this row as separate columns. Carries pre-computed folded copies
-  `canonical_de_folded` and `canonical_en_folded` (NFC + German digraph
-  expansion + diacritic strip — same fold as `ingredient_aliases.alias_folded`)
-  with btree indexes so name-equality lookups (auto-link on recipe save,
-  alias-vs-canonical collision) are O(log n). The app writes the folded
-  value on every insert/update from JS so the algorithm matches across
-  the source and the index. A startup hook recomputes folded values
-  for any row whose stored fold drifts from `foldForMatch(source)`,
-  catching schema changes and the SQLite-`lower()` ASCII gap from the
-  initial backfill. (Tables renamed from `central_ingredients` in
-  migration 0005.)
-- **ingredient_aliases** — many rows per ingredient, holding a single
-  alias string plus the pre-computed `alias_folded`. Aliases are
-  matching-only and language-agnostic (no language column). An alias
-  is **globally unique across the whole catalog** (NFC + German
-  digraph + diacritic-stripped). Enforced by SQLite via
-  `UNIQUE INDEX ingredient_aliases_folded_global_unique ON
-  ingredient_aliases (alias_folded)`. Indexed equality on the folded
-  column drives both server-side save validation and the inline
-  client check (via a server action — no client-side preload of the
-  catalog). Rows cascade-delete with the parent entry. FK column is
-  `ingredient_id`.
+  `none`), optional density (g/ml), notes. Canonical name and aliases
+  are reached through `ingredients_translated` and `ingredients_aliases`
+  respectively — see *Per-language storage*. (Table renamed from
+  `central_ingredients` in migration 0005.)
+- **ingredients_translated** — join from an ingredient to its canonical
+  string group. Columns: `ingredient_id` (FK → `ingredients(id)`
+  ON DELETE CASCADE), `unit_code` (`'canonical'`),
+  `translated_string_id` (group id referencing `translated_strings.id`).
+  PK is `(ingredient_id, unit_code)`.
+- **ingredients_aliases** — many rows per ingredient, one per *alias
+  group*. Columns: `id` (PK), `ingredient_id` (FK → `ingredients(id)`
+  ON DELETE CASCADE), `translated_string_id` (group id referencing
+  `translated_strings.id`). Each alias group has one or two locale
+  variants in `translated_strings`; matching searches across all
+  variants (see `specs/functional/06_i18n.md`). DB-level enforcement
+  of the global folded-uniqueness rule against canonicals lives in
+  `ingredient_lookup_folded`. (Renamed from `ingredient_aliases` to
+  match the `*_translated`/`*_aliases` naming used by the new model.)
+- **ingredient_lookup_folded** — shadow table that gives DB-level
+  enforcement of the alias-and-canonical global folded-uniqueness rule.
+  One row per `translated_strings` row reachable from either
+  `ingredients_translated` with `unit_code = 'canonical'` or
+  `ingredients_aliases`. Columns: `string_folded` (TEXT, UNIQUE),
+  `kind` (`'canonical'` | `'alias'`), `ingredient_id` (FK →
+  `ingredients(id)` ON DELETE CASCADE), `translated_string_id`,
+  `locale`. The app maintains this table on every insert / update /
+  delete of source rows on the canonical or alias paths. A startup
+  hook reconciles drift by rebuilding the shadow from the source rows,
+  same role the previous `canonical_*_folded` repair served.
 - **ingredient_count_units** — many rows per ingredient, holding a
   count unit name (e.g. `piece`, `clove`) and its grams-per-unit
   (REAL). An entry may have zero or more. The unit name is **unique
@@ -107,14 +138,21 @@ exact column names and types are settled at implementation.
   parent entry. FK column is `ingredient_id`.
 - **recipe_ingredients** carries `ingredient_id` (was
   `central_ingredient_id`) referencing `ingredients(id)`.
-- **cuisines** — controlled vocabulary. Columns: cuisine key (PK string),
-  `label_de`, `label_en`. **Seeded** in the recipes migration with a
-  v1 starter set (`italian`, `thai`, `german`, `french`, `mexican`,
-  `indian`, `american`, `mediterranean`, `japanese`, `chinese`, `greek`,
-  `spanish`, `middle-eastern`, `vietnamese`, `other`). Additional
-  cuisines added in follow-up migrations: `korean`. New cuisines are
-  added by appending to a follow-up migration; no in-app cuisine-
-  management surface in v1.
+- **cuisines** — controlled vocabulary. Columns: cuisine key (PK string).
+  Display labels are reached through `cuisines_translated`. **Seeded**
+  in the recipes migration with a v1 starter set (`italian`, `thai`,
+  `german`, `french`, `mexican`, `indian`, `american`, `mediterranean`,
+  `japanese`, `chinese`, `greek`, `spanish`, `middle-eastern`,
+  `vietnamese`, `other`); the seed also inserts a `translated_strings`
+  group with `de` and `en` rows for each label and the matching
+  `cuisines_translated` join row. Additional cuisines added in
+  follow-up migrations: `korean`. New cuisines are added by appending
+  to a follow-up migration; no in-app cuisine-management surface in v1.
+- **cuisines_translated** — join from a cuisine key to its label string
+  group. Columns: `cuisine_key` (FK → `cuisines(key)` ON DELETE
+  CASCADE), `unit_code` (`'label'`), `translated_string_id` (group id
+  referencing `translated_strings.id`). PK is
+  `(cuisine_key, unit_code)`.
 - **sessions** — server-side sessions for authenticated users. See
   `04_auth.md` for the column shape.
 - **spoonacular_cache** — cached Spoonacular API responses keyed by
@@ -124,18 +162,59 @@ exact column names and types are settled at implementation.
 
 ## Per-language storage
 
-Per-language text fields use **separate columns per language** rather than
-a join table or a JSON blob:
+Per-language text uses a **central translation table** with per-parent
+join tables that point into it.
 
-- `recipes`: `title_de`, `title_en`, `notes_de`, `notes_en`
-- `recipe_steps`: `text_de`, `text_en`
-- `ingredients`: `canonical_de`, `canonical_en`
-- `cuisines`: `label_de`, `label_en`
+- `translated_strings (id, locale, string, string_folded)` — central.
+  PK is `(id, locale)`. The `id` is a group id, not unique on its own
+  — it groups the locale variants of one logical string. Absence of a
+  row for a locale means "no translation in that locale". There is no
+  NULL-text state.
+- Per-parent join tables map `(parent_row, unit_code) → translated_string_group`:
+  - `recipes_translated` — `unit_code ∈ ('title', 'notes')`,
+    PK `(recipe_id, unit_code)`.
+  - `recipe_steps_translated` — `unit_code = 'text'`,
+    PK `(recipe_step_id, unit_code)`.
+  - `ingredients_translated` — `unit_code = 'canonical'`,
+    PK `(ingredient_id, unit_code)`. Aliases are *not* in this table —
+    they have many-per-ingredient cardinality with no slot name and
+    live in `ingredients_aliases` (which points into the same
+    `translated_strings`).
+  - `cuisines_translated` — `unit_code = 'label'`,
+    PK `(cuisine_key, unit_code)`.
 
-The two-language scope (see `06_i18n.md`) makes columns the simplest
-option: every read is a single row, every search is a straight `OR`
-between columns, no joins. The tradeoff is that adding a third language
-later requires a schema migration. That is acceptable given the v1 scope.
+Each join table holds a real FK to its parent (with `ON DELETE
+CASCADE`) and references a `translated_strings` group through the
+group id. SQLite cannot cascade-delete in the join → group direction
+because `translated_strings.id` is not a single-row PK; orphaned
+groups are cleaned up in app code on the same write path that removes
+the join row.
+
+Reasons for this shape over per-language columns:
+
+- Adding a third locale is a code change (extend the `locale` enum and
+  the resolver's supported set; see `05_i18n.md`), not a schema
+  migration.
+- Name-equality and search lookups use one btree index on
+  `translated_strings.string_folded` covering every consumer × locale,
+  instead of one `canonical_<locale>_folded` index per locale per
+  parent table.
+- "Missing translation" is the absence of a row, not a NULL on a
+  column. The fallback resolver reads both locales for the referenced
+  group, picks the preferred, and marks the displayed text as a
+  fallback when the preferred locale's row is missing.
+
+Costs accepted:
+
+- Detail reads fan out: parent row + an `IN`-list against
+  `translated_strings` for every referenced group id. Hot list views
+  compose this as a single `LEFT JOIN translated_strings` per active
+  locale through the parent's `*_translated` table.
+- The alias-vs-canonical global folded-uniqueness rule still cuts
+  across two tables (`ingredients_translated` filtered to
+  `unit_code = 'canonical'` and `ingredients_aliases`). DB-level
+  enforcement is provided by the `ingredient_lookup_folded` shadow
+  table; the app maintains it on every write to either source.
 
 ## Composition cycle detection
 
@@ -161,10 +240,11 @@ component references first; deletion is otherwise refused.
 
 Cross-language search over recipe titles, ingredient names, and aliases
 is needed once `02_meal_plan.md` and `03_tonights_dinner.md` exist.
-SQLite's **FTS5** module is the planned implementation: shadow FTS tables
-indexed off the canonical tables (recipes, ingredients,
-ingredient_aliases), populated by triggers. Detailed search
-behaviour is deferred until those functional specs land.
+SQLite's **FTS5** module is the planned implementation: a shadow FTS
+table indexed off `translated_strings`, populated by triggers, joined
+back through the `*_translated` and `ingredients_aliases` tables to
+locate the owning entity. Detailed search behaviour is deferred until
+those functional specs land.
 
 ## Deletion
 

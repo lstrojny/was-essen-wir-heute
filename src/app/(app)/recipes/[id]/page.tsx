@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { requireSetupOrSession } from '@/auth/guards'
 import { parseRecipeId } from '@/db/ids'
+import { resolveText } from '@/i18n/translatable'
 import { DEFAULT_FORM_SERVINGS } from '@/recipes/constants'
 import {
     getMyRatingForRecipe,
@@ -36,13 +37,11 @@ export default async function EditRecipePage({
     if (!recipe) {
         notFound()
     }
-    const primary =
-        session.user.language === 'de' ? recipe.titleDe : recipe.titleEn
-    const fallback =
-        session.user.language === 'de' ? recipe.titleEn : recipe.titleDe
-    const title = primary ?? fallback ?? t('recipes.unnamed')
+    const title =
+        resolveText(recipe.title, session.user.language)?.text ??
+        t('recipes.unnamed')
 
-    const cuisines = listCuisines()
+    const cuisines = listCuisines(session.user.language)
     const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(recipe.id)
     const candidateTotals = new Map(
@@ -57,10 +56,8 @@ export default async function EditRecipePage({
 
     const initialValues: RecipeFormInitial = {
         id: recipe.id,
-        titleDe: recipe.titleDe ?? '',
-        titleEn: recipe.titleEn ?? '',
-        notesDe: recipe.notesDe ?? '',
-        notesEn: recipe.notesEn ?? '',
+        title: recipe.title,
+        notes: recipe.notes,
         cuisineKey: recipe.cuisineKey,
         activeTimeMinutes: String(recipe.activeTimeMinutes),
         waitTimeMinutes:
@@ -80,10 +77,7 @@ export default async function EditRecipePage({
             name: ing.name,
             ingredientId: ing.ingredientId,
         })),
-        steps: recipe.steps.map((step) => ({
-            textDe: step.textDe ?? '',
-            textEn: step.textEn ?? '',
-        })),
+        steps: recipe.steps.map((step) => ({ id: step.id, text: step.text })),
         components: recipe.components.map((c) => {
             const totals = candidateTotals.get(c.childRecipeId) ?? {
                 totalActiveTimeMinutes: 0,
@@ -91,8 +85,7 @@ export default async function EditRecipePage({
             }
             return {
                 childRecipeId: c.childRecipeId,
-                titleDe: c.childTitleDe,
-                titleEn: c.childTitleEn,
+                title: c.childTitle,
                 ...totals,
             }
         }),

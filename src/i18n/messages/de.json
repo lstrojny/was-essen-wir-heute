@@ -2,6 +2,17 @@
     "app": {
         "title": "Was essen wir heute"
     },
+    "translate": {
+        "trigger": "In andere Sprachen übersetzen",
+        "triggerHint": "Fehlende Übersetzungen ausgehend von der Sprache füllen, in der bereits Inhalt vorliegt",
+        "reviewTitle": "Übersetzungen prüfen",
+        "reviewTitleFrom": "Übersetzung aus {source}",
+        "translating": "Übersetze…",
+        "emptySource": "Noch nichts zum Übersetzen — bitte zuerst in irgendeiner Sprache etwas eingeben.",
+        "noTargets": "Keine weiteren unterstützten Sprachen.",
+        "apply": "Übernehmen",
+        "cancel": "Abbrechen"
+    },
     "nav": {
         "recipes": "Rezepte",
         "ingredients": "Zutaten",
@@ -127,10 +138,9 @@
             "confirmDelete": "Diese Zutat löschen?",
             "saved": "Zutat gespeichert.",
             "canonical": {
-                "title": "Hauptnamen",
-                "intro": "Mindestens eine Sprache ist erforderlich.",
-                "de": "Deutsch",
-                "en": "Englisch"
+                "title": "Hauptname",
+                "intro": "Wird in deiner aktiven Sprache eingegeben.",
+                "label": "Name"
             },
             "classification": {
                 "title": "Klassifikation",
@@ -141,10 +151,12 @@
             },
             "aliases": {
                 "title": "Aliasse",
-                "intro": "Sprachunabhängige Alternativnamen, nur für die Zuordnung verwendet.",
+                "intro": "Alternativnamen pro Sprache, nur für die Zuordnung verwendet.",
                 "addLabel": "Alias hinzufügen",
                 "add": "Hinzufügen",
-                "empty": "Noch keine Aliasse."
+                "remove": "Alias entfernen",
+                "empty": "Noch keine Aliasse.",
+                "untranslated": "(noch nicht übersetzt)"
             },
             "countUnits": {
                 "title": "Stückeinheiten",
@@ -288,9 +300,8 @@
             "saved": "Rezept gespeichert.",
             "titles": {
                 "title": "Titel",
-                "intro": "Mindestens eine Sprache ist erforderlich.",
-                "de": "Deutsch",
-                "en": "Englisch"
+                "intro": "Wird in deiner aktiven Sprache eingegeben.",
+                "label": "Titel"
             },
             "classification": {
                 "title": "Klassifikation",
@@ -304,8 +315,7 @@
             "notes": {
                 "title": "Notizen",
                 "intro": "Hinweise für die Köchin / den Koch (Substitutionen, Warnungen).",
-                "de": "Deutsch",
-                "en": "Englisch"
+                "label": "Notizen"
             },
             "ingredients": {
                 "title": "Zutaten",
@@ -333,9 +343,8 @@
             },
             "steps": {
                 "title": "Schritte",
-                "intro": "Ein Schritt pro Zeile. Beide Sprachen optional, mindestens eine pro Schritt.",
-                "de": "Deutsch",
-                "en": "Englisch",
+                "intro": "Ein Schritt pro Zeile. Wird in deiner aktiven Sprache eingegeben.",
+                "label": "Schritt {n}",
                 "remove": "Entfernen",
                 "add": "Schritt hinzufügen"
             }

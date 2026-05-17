@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
+import { resolveText } from '@/i18n/translatable'
 import type { RecipeListRow } from '@/recipes/queries'
 import { RatingControl } from './Rating'
 
@@ -22,12 +23,9 @@ export function RecipeList({
     return (
         <Stack spacing={1.5}>
             {rows.map((row) => {
-                const primary =
-                    activeLanguage === 'de' ? row.titleDe : row.titleEn
-                const fallback =
-                    activeLanguage === 'de' ? row.titleEn : row.titleDe
-                const display = primary ?? fallback ?? t('recipes.unnamed')
-                const untranslated = primary === null
+                const resolved = resolveText(row.title, activeLanguage)
+                const display = resolved?.text ?? t('recipes.unnamed')
+                const untranslated = resolved?.isFallback ?? true
                 const totalTime =
                     row.totalActiveTimeMinutes + row.totalWaitTimeMinutes
                 return (

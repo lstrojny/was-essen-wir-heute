@@ -2,6 +2,17 @@
     "app": {
         "title": "Was essen wir heute"
     },
+    "translate": {
+        "trigger": "Translate to other languages",
+        "triggerHint": "Fill in missing translations from whichever language already has content",
+        "reviewTitle": "Review translations",
+        "reviewTitleFrom": "Translating from {source}",
+        "translating": "Translating…",
+        "emptySource": "Nothing to translate yet — add a value in any language first.",
+        "noTargets": "No other supported languages to translate into.",
+        "apply": "Apply",
+        "cancel": "Cancel"
+    },
     "nav": {
         "recipes": "Recipes",
         "ingredients": "Ingredients",
@@ -127,10 +138,9 @@
             "confirmDelete": "Delete this ingredient?",
             "saved": "Ingredient saved.",
             "canonical": {
-                "title": "Canonical names",
-                "intro": "At least one language is required.",
-                "de": "German",
-                "en": "English"
+                "title": "Canonical name",
+                "intro": "Entered in your active language.",
+                "label": "Name"
             },
             "classification": {
                 "title": "Classification",
@@ -141,10 +151,12 @@
             },
             "aliases": {
                 "title": "Aliases",
-                "intro": "Language-agnostic alternate names used only for matching.",
+                "intro": "Per-locale alternate names used only for matching.",
                 "addLabel": "Add alias",
                 "add": "Add",
-                "empty": "No aliases yet."
+                "remove": "Remove alias",
+                "empty": "No aliases yet.",
+                "untranslated": "(not translated yet)"
             },
             "countUnits": {
                 "title": "Count units",
@@ -287,10 +299,9 @@
             "confirmDelete": "Delete this recipe?",
             "saved": "Recipe saved.",
             "titles": {
-                "title": "Titles",
-                "intro": "At least one language is required.",
-                "de": "German",
-                "en": "English"
+                "title": "Title",
+                "intro": "Entered in your active language.",
+                "label": "Title"
             },
             "classification": {
                 "title": "Classification",
@@ -304,8 +315,7 @@
             "notes": {
                 "title": "Notes",
                 "intro": "Cook's notes (substitutions, warnings, tips).",
-                "de": "German",
-                "en": "English"
+                "label": "Notes"
             },
             "ingredients": {
                 "title": "Ingredients",
@@ -333,9 +343,8 @@
             },
             "steps": {
                 "title": "Steps",
-                "intro": "One step per row. Both languages optional, at least one per step.",
-                "de": "German",
-                "en": "English",
+                "intro": "One step per row. Entered in your active language.",
+                "label": "Step {n}",
                 "remove": "Remove",
                 "add": "Add step"
             }

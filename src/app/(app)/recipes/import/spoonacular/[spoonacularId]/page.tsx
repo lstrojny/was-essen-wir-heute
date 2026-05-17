@@ -75,7 +75,7 @@ export default async function SpoonacularPreviewPage({
         )
     }
 
-    const cuisines = listCuisines()
+    const cuisines = listCuisines(session.user.language)
     const ingredients = listIngredientsForPicker()
     const componentCandidates = listRecipesForComponentPicker(null)
 

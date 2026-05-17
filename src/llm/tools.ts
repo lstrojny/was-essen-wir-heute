@@ -13,7 +13,6 @@ import {
     type RecipeId,
 } from '@/db/ids'
 import {
-    ingredientAliases,
     ingredientCountUnits,
     ingredients as ingredientsTable,
     recipeComponents,
@@ -22,45 +21,48 @@ import {
     recipeSteps,
     recipes,
 } from '@/db/schema'
+import { SUPPORTED_LOCALES } from '@/i18n/locale'
+import {
+    mergeLocaleMap,
+    optionalLocaleMapSchema,
+    requiredLocaleMapSchema,
+    resolveText,
+} from '@/i18n/translatable'
 import { foldForMatch } from '@/ingredients/name-match'
 import {
     findAliasConflict,
+    findIngredientByName,
     getIngredient,
     listIngredients,
 } from '@/ingredients/queries'
 import {
+    deleteAllIngredientTranslations,
+    writeIngredientAliasGroup,
+    writeIngredientCanonical,
+} from '@/ingredients/translation-writes'
+import {
     findDirectChildrenForMany,
-    findIngredientByName,
     findRecipesUsingIngredient,
     getMyRatingForRecipe,
     getRatingAggregateForRecipe,
     getRecipe,
     getRolledUpRecipe,
-    listCuisines,
+    listCuisinesAllLocales,
     listRatingsForRecipe,
     listRecipes,
+    type RecipeListRow,
 } from '@/recipes/queries'
+import {
+    deleteStepTranslationGroupsForRecipe,
+    writeRecipeStepTranslation,
+    writeRecipeTranslationUnit,
+} from '@/recipes/translation-writes'
 
 function projectRecipeListRow(activeLanguage: 'de' | 'en') {
-    return (row: {
-        id: string
-        titleDe: string | null
-        titleEn: string | null
-        cuisineKey: string
-        totalActiveTimeMinutes: number
-        totalWaitTimeMinutes: number
-        isCompleteMeal: boolean
-        ratingAverage: number | null
-        ratingCount: number
-        myRating: number | null
-    }) => ({
+    return (row: RecipeListRow) => ({
         id: row.id,
-        title:
-            activeLanguage === 'de'
-                ? (row.titleDe ?? row.titleEn)
-                : (row.titleEn ?? row.titleDe),
-        titleDe: row.titleDe,
-        titleEn: row.titleEn,
+        title: resolveText(row.title, activeLanguage)?.text ?? null,
+        titleByLocale: row.title,
         cuisineKey: row.cuisineKey,
         totalActiveTimeMinutes: row.totalActiveTimeMinutes,
         totalWaitTimeMinutes: row.totalWaitTimeMinutes,
@@ -139,10 +141,8 @@ export function buildChatTools({
                 const myRating = getMyRatingForRecipe(id, user.id)
                 return {
                     id: detail.id,
-                    titleDe: detail.titleDe,
-                    titleEn: detail.titleEn,
-                    notesDe: detail.notesDe,
-                    notesEn: detail.notesEn,
+                    title: detail.title,
+                    notes: detail.notes,
                     cuisineKey: detail.cuisineKey,
                     ownActiveTimeMinutes: detail.activeTimeMinutes,
                     ownWaitTimeMinutes: detail.waitTimeMinutes,
@@ -160,14 +160,10 @@ export function buildChatTools({
                         name: ing.name,
                         ingredientId: ing.ingredientId,
                     })),
-                    steps: detail.steps.map((step) => ({
-                        textDe: step.textDe,
-                        textEn: step.textEn,
-                    })),
+                    steps: detail.steps.map((step) => ({ text: step.text })),
                     components: detail.components.map((c) => ({
                         childRecipeId: c.childRecipeId,
-                        titleDe: c.childTitleDe,
-                        titleEn: c.childTitleEn,
+                        title: c.childTitle,
                     })),
                     ratingAverage: aggregate.average,
                     ratingCount: aggregate.count,
@@ -181,7 +177,7 @@ export function buildChatTools({
                 'List all cuisine keys with their labels. Use this to translate a free-text cuisine name to a valid key before calling search_recipes.',
             inputSchema: z.object({}),
             execute: async () => {
-                return { cuisines: listCuisines() }
+                return { cuisines: listCuisinesAllLocales() }
             },
         }),
 
@@ -202,8 +198,7 @@ export function buildChatTools({
                     count: rows.length,
                     ingredients: rows.map((r) => ({
                         id: r.id,
-                        canonicalDe: r.canonicalDe,
-                        canonicalEn: r.canonicalEn,
+                        canonical: r.canonical,
                         role: r.role,
                         density: r.density,
                         aliasCount: r.aliasCount,
@@ -244,12 +239,9 @@ export function buildChatTools({
                     count: rows.length,
                     recipes: rows.map((r) => ({
                         id: r.id,
-                        titleDe: r.titleDe,
-                        titleEn: r.titleEn,
                         title:
-                            activeLanguage === 'de'
-                                ? (r.titleDe ?? r.titleEn)
-                                : (r.titleEn ?? r.titleDe),
+                            resolveText(r.title, activeLanguage)?.text ?? null,
+                        titleByLocale: r.title,
                         cuisineKey: r.cuisineKey,
                     })),
                 }
@@ -302,17 +294,11 @@ export function buildChatTools({
             execute: async ({ recipeId, score, confirmed }) => {
                 const id = parseRecipeId(recipeId)
                 if (!id) return { error: 'invalid recipe id' }
-                const row = db
-                    .select({
-                        titleDe: recipes.titleDe,
-                        titleEn: recipes.titleEn,
-                    })
-                    .from(recipes)
-                    .where(eq(recipes.id, id))
-                    .get()
-                if (!row) return { error: 'recipe not found' }
+                const detail = getRecipe(id)
+                if (!detail) return { error: 'recipe not found' }
                 const current = getMyRatingForRecipe(id, user.id)
-                const title = row.titleEn ?? row.titleDe ?? '(?)'
+                const title =
+                    resolveText(detail.title, activeLanguage)?.text ?? '(?)'
                 if (!confirmed) {
                     return {
                         needs_confirmation: true,
@@ -372,17 +358,11 @@ export function buildChatTools({
             execute: async ({ recipeId, confirmed }) => {
                 const id = parseRecipeId(recipeId)
                 if (!id) return { error: 'invalid recipe id' }
-                const row = db
-                    .select({
-                        titleDe: recipes.titleDe,
-                        titleEn: recipes.titleEn,
-                    })
-                    .from(recipes)
-                    .where(eq(recipes.id, id))
-                    .get()
-                if (!row) return { error: 'recipe not found' }
+                const detail = getRecipe(id)
+                if (!detail) return { error: 'recipe not found' }
                 const current = getMyRatingForRecipe(id, user.id)
-                const title = row.titleEn ?? row.titleDe ?? '(?)'
+                const title =
+                    resolveText(detail.title, activeLanguage)?.text ?? '(?)'
                 if (!confirmed) {
                     if (current === null) {
                         return {
@@ -420,10 +400,14 @@ export function buildChatTools({
             inputSchema: z.object({
                 recipeId: z.string().describe('Recipe ID (UUID).'),
                 patch: z.object({
-                    titleDe: z.string().optional(),
-                    titleEn: z.string().optional(),
-                    notesDe: z.string().nullable().optional(),
-                    notesEn: z.string().nullable().optional(),
+                    title: optionalLocaleMapSchema()
+                        .optional()
+                        .describe(
+                            'Title by locale. Omit locales to leave unchanged.',
+                        ),
+                    notes: optionalLocaleMapSchema()
+                        .optional()
+                        .describe('Notes by locale.'),
                     cuisineKey: z.string().optional(),
                     activeTimeMinutes: z
                         .number()
@@ -453,12 +437,7 @@ export function buildChatTools({
                             'Full replacement list at intendedServings scale. Include unchanged rows.',
                         ),
                     steps: z
-                        .array(
-                            z.object({
-                                textDe: z.string().nullable(),
-                                textEn: z.string().nullable(),
-                            }),
-                        )
+                        .array(z.object({ text: optionalLocaleMapSchema() }))
                         .optional()
                         .describe('Full replacement list of steps.'),
                     components: z
@@ -481,30 +460,28 @@ export function buildChatTools({
                 if (!detail) return { error: 'recipe not found' }
 
                 const changes: string[] = []
-                if (
-                    patch.titleDe !== undefined &&
-                    patch.titleDe !== detail.titleDe
-                )
-                    changes.push(
-                        `titleDe: "${detail.titleDe ?? ''}" → "${patch.titleDe}"`,
-                    )
-                if (
-                    patch.titleEn !== undefined &&
-                    patch.titleEn !== detail.titleEn
-                )
-                    changes.push(
-                        `titleEn: "${detail.titleEn ?? ''}" → "${patch.titleEn}"`,
-                    )
-                if (
-                    patch.notesDe !== undefined &&
-                    (patch.notesDe ?? null) !== detail.notesDe
-                )
-                    changes.push('notesDe changed')
-                if (
-                    patch.notesEn !== undefined &&
-                    (patch.notesEn ?? null) !== detail.notesEn
-                )
-                    changes.push('notesEn changed')
+                if (patch.title !== undefined) {
+                    for (const locale of SUPPORTED_LOCALES) {
+                        const next = patch.title[locale]
+                        if (next === undefined) continue
+                        if (next !== detail.title[locale]) {
+                            changes.push(
+                                `title.${locale}: "${
+                                    detail.title[locale] ?? ''
+                                }" → "${next}"`,
+                            )
+                        }
+                    }
+                }
+                if (patch.notes !== undefined) {
+                    for (const locale of SUPPORTED_LOCALES) {
+                        const next = patch.notes[locale]
+                        if (next === undefined) continue
+                        if (next !== detail.notes[locale]) {
+                            changes.push(`notes.${locale} changed`)
+                        }
+                    }
+                }
                 let parsedCuisine: CuisineKey | null = null
                 if (patch.cuisineKey !== undefined) {
                     parsedCuisine = parseCuisineKey(patch.cuisineKey)
@@ -562,7 +539,8 @@ export function buildChatTools({
                 }
 
                 const title =
-                    detail.titleEn ?? detail.titleDe ?? '(unnamed recipe)'
+                    resolveText(detail.title, activeLanguage)?.text ??
+                    '(unnamed recipe)'
                 if (!confirmed) {
                     return {
                         needs_confirmation: true,
@@ -615,28 +593,18 @@ export function buildChatTools({
                         parsedIngredients = parsedIngredients.map((ing) => {
                             if (ing.ingredientId || !ing.name.trim()) return ing
                             const trimmedName = ing.name.trim()
-                            const folded = foldForMatch(trimmedName)
                             const inserted = db
                                 .insert(ingredientsTable)
                                 .values({
-                                    canonicalDe:
-                                        activeLanguage === 'de'
-                                            ? trimmedName
-                                            : null,
-                                    canonicalEn:
-                                        activeLanguage === 'en'
-                                            ? trimmedName
-                                            : null,
-                                    canonicalDeFolded:
-                                        activeLanguage === 'de' ? folded : null,
-                                    canonicalEnFolded:
-                                        activeLanguage === 'en' ? folded : null,
                                     role: 'none',
                                     density: null,
                                     notes: null,
                                 })
                                 .returning({ id: ingredientsTable.id })
                                 .get()
+                            writeIngredientCanonical(inserted.id, {
+                                [activeLanguage]: trimmedName,
+                            })
                             return { ...ing, ingredientId: inserted.id }
                         })
                     }
@@ -644,14 +612,6 @@ export function buildChatTools({
                     const updates: Record<string, unknown> = {
                         updatedAt: new Date(),
                     }
-                    if (patch.titleDe !== undefined)
-                        updates.titleDe = patch.titleDe || null
-                    if (patch.titleEn !== undefined)
-                        updates.titleEn = patch.titleEn || null
-                    if (patch.notesDe !== undefined)
-                        updates.notesDe = patch.notesDe || null
-                    if (patch.notesEn !== undefined)
-                        updates.notesEn = patch.notesEn || null
                     if (parsedCuisine) updates.cuisineKey = parsedCuisine
                     if (patch.activeTimeMinutes !== undefined)
                         updates.activeTimeMinutes = patch.activeTimeMinutes
@@ -663,6 +623,20 @@ export function buildChatTools({
                         .set(updates)
                         .where(eq(recipes.id, id))
                         .run()
+                    if (patch.title !== undefined) {
+                        writeRecipeTranslationUnit(
+                            id,
+                            'title',
+                            mergeLocaleMap(detail.title, patch.title),
+                        )
+                    }
+                    if (patch.notes !== undefined) {
+                        writeRecipeTranslationUnit(
+                            id,
+                            'notes',
+                            mergeLocaleMap(detail.notes, patch.notes),
+                        )
+                    }
 
                     if (parsedIngredients) {
                         db.delete(recipeIngredients)
@@ -684,20 +658,31 @@ export function buildChatTools({
                         }
                     }
                     if (patch.steps !== undefined) {
+                        deleteStepTranslationGroupsForRecipe(id)
                         db.delete(recipeSteps)
                             .where(eq(recipeSteps.recipeId, id))
                             .run()
                         if (patch.steps.length) {
-                            db.insert(recipeSteps)
+                            const inserted = db
+                                .insert(recipeSteps)
                                 .values(
-                                    patch.steps.map((s, position) => ({
+                                    patch.steps.map((_s, position) => ({
                                         recipeId: id,
                                         position,
-                                        textDe: s.textDe,
-                                        textEn: s.textEn,
                                     })),
                                 )
-                                .run()
+                                .returning({
+                                    id: recipeSteps.id,
+                                    position: recipeSteps.position,
+                                })
+                                .all()
+                            inserted.sort((a, b) => a.position - b.position)
+                            for (const [i, row] of inserted.entries()) {
+                                writeRecipeStepTranslation(
+                                    row.id,
+                                    patch.steps[i].text,
+                                )
+                            }
                         }
                     }
                     if (parsedComponents) {
@@ -735,18 +720,21 @@ export function buildChatTools({
             inputSchema: z.object({
                 ingredientId: z.string().describe('Ingredient ID (UUID).'),
                 patch: z.object({
-                    canonicalDe: z.string().nullable().optional(),
-                    canonicalEn: z.string().nullable().optional(),
+                    canonical: optionalLocaleMapSchema()
+                        .optional()
+                        .describe(
+                            'Canonical name per locale. Omit locales to keep current.',
+                        ),
                     role: z
                         .enum(['starch', 'vegetable', 'protein', 'none'])
                         .optional(),
                     density: z.number().positive().nullable().optional(),
                     notes: z.string().nullable().optional(),
                     aliases: z
-                        .array(z.string())
+                        .array(z.object({ text: optionalLocaleMapSchema() }))
                         .optional()
                         .describe(
-                            'Full replacement list of aliases. Include existing aliases plus new ones.',
+                            'Full replacement list of alias groups. Each group has per-locale variants; include existing groups plus new ones.',
                         ),
                     countUnits: z
                         .array(
@@ -771,20 +759,19 @@ export function buildChatTools({
                 if (!current) return { error: 'ingredient not found' }
 
                 const changes: string[] = []
-                if (
-                    patch.canonicalDe !== undefined &&
-                    (patch.canonicalDe ?? null) !== current.canonicalDe
-                )
-                    changes.push(
-                        `canonicalDe: "${current.canonicalDe ?? ''}" → "${patch.canonicalDe ?? ''}"`,
-                    )
-                if (
-                    patch.canonicalEn !== undefined &&
-                    (patch.canonicalEn ?? null) !== current.canonicalEn
-                )
-                    changes.push(
-                        `canonicalEn: "${current.canonicalEn ?? ''}" → "${patch.canonicalEn ?? ''}"`,
-                    )
+                if (patch.canonical !== undefined) {
+                    for (const locale of SUPPORTED_LOCALES) {
+                        const next = patch.canonical[locale]
+                        if (next === undefined) continue
+                        if (next !== current.canonical[locale]) {
+                            changes.push(
+                                `canonical.${locale}: "${
+                                    current.canonical[locale] ?? ''
+                                }" → "${next}"`,
+                            )
+                        }
+                    }
+                }
                 if (patch.role !== undefined && patch.role !== current.role)
                     changes.push(`role: ${current.role} → ${patch.role}`)
                 if (
@@ -800,15 +787,9 @@ export function buildChatTools({
                 )
                     changes.push('notes changed')
                 if (patch.aliases !== undefined) {
-                    const sameLen =
-                        patch.aliases.length === current.aliases.length
-                    const sameContent =
-                        sameLen &&
-                        patch.aliases.every((a, i) => a === current.aliases[i])
-                    if (!sameContent)
-                        changes.push(
-                            `aliases: [${current.aliases.join(', ')}] → [${patch.aliases.join(', ')}]`,
-                        )
+                    changes.push(
+                        `aliases: ${current.aliases.length} → ${patch.aliases.length} groups`,
+                    )
                 }
                 if (patch.countUnits !== undefined) {
                     const same =
@@ -829,24 +810,24 @@ export function buildChatTools({
                     return { needs_confirmation: false, summary: 'no changes' }
                 }
                 const label =
-                    current.canonicalEn ??
-                    current.canonicalDe ??
+                    resolveText(current.canonical, activeLanguage)?.text ??
                     '(unnamed ingredient)'
 
+                const mergedCanonical = patch.canonical
+                    ? mergeLocaleMap(current.canonical, patch.canonical)
+                    : current.canonical
                 if (patch.aliases !== undefined) {
-                    const nextCanonicalDe =
-                        patch.canonicalDe !== undefined
-                            ? patch.canonicalDe
-                            : current.canonicalDe
-                    const nextCanonicalEn =
-                        patch.canonicalEn !== undefined
-                            ? patch.canonicalEn
-                            : current.canonicalEn
+                    const proposed: string[] = []
+                    for (const a of patch.aliases) {
+                        for (const value of Object.values(a.text)) {
+                            if (value) proposed.push(value)
+                        }
+                    }
                     const conflict = findAliasConflict(
-                        patch.aliases,
+                        proposed,
                         id,
-                        nextCanonicalDe,
-                        nextCanonicalEn,
+                        mergedCanonical,
+                        activeLanguage,
                     )
                     if (conflict) {
                         if (
@@ -873,18 +854,6 @@ export function buildChatTools({
                     const updates: Record<string, unknown> = {
                         updatedAt: new Date(),
                     }
-                    if (patch.canonicalDe !== undefined) {
-                        updates.canonicalDe = patch.canonicalDe || null
-                        updates.canonicalDeFolded = patch.canonicalDe
-                            ? foldForMatch(patch.canonicalDe)
-                            : null
-                    }
-                    if (patch.canonicalEn !== undefined) {
-                        updates.canonicalEn = patch.canonicalEn || null
-                        updates.canonicalEnFolded = patch.canonicalEn
-                            ? foldForMatch(patch.canonicalEn)
-                            : null
-                    }
                     if (patch.role !== undefined) updates.role = patch.role
                     if (patch.density !== undefined)
                         updates.density = patch.density
@@ -894,20 +863,15 @@ export function buildChatTools({
                         .set(updates)
                         .where(eq(ingredientsTable.id, id))
                         .run()
+                    if (patch.canonical !== undefined) {
+                        writeIngredientCanonical(id, mergedCanonical)
+                    }
                     if (patch.aliases !== undefined) {
-                        db.delete(ingredientAliases)
-                            .where(eq(ingredientAliases.ingredientId, id))
-                            .run()
-                        if (patch.aliases.length) {
-                            db.insert(ingredientAliases)
-                                .values(
-                                    patch.aliases.map((alias) => ({
-                                        ingredientId: id,
-                                        alias,
-                                        aliasFolded: foldForMatch(alias),
-                                    })),
-                                )
-                                .run()
+                        for (const existingAlias of current.aliases) {
+                            writeIngredientAliasGroup(id, existingAlias.id, {})
+                        }
+                        for (const alias of patch.aliases) {
+                            writeIngredientAliasGroup(id, null, alias.text)
                         }
                     }
                     if (patch.countUnits !== undefined) {
@@ -956,8 +920,7 @@ export function buildChatTools({
                 if (!detail) return { error: 'ingredient not found' }
                 const using = findRecipesUsingIngredient(id)
                 const label =
-                    detail.canonicalEn ??
-                    detail.canonicalDe ??
+                    resolveText(detail.canonical, activeLanguage)?.text ??
                     '(unnamed ingredient)'
                 if (!confirmed) {
                     return {
@@ -969,9 +932,12 @@ export function buildChatTools({
                         usedInRecipeCount: using.length,
                     }
                 }
-                db.delete(ingredientsTable)
-                    .where(eq(ingredientsTable.id, id))
-                    .run()
+                db.transaction(() => {
+                    deleteAllIngredientTranslations(id)
+                    db.delete(ingredientsTable)
+                        .where(eq(ingredientsTable.id, id))
+                        .run()
+                })
                 revalidatePath('/ingredients')
                 revalidatePath(`/ingredients/${id}`)
                 revalidatePath('/recipes')
@@ -1006,20 +972,14 @@ export type ChatTools = ReturnType<typeof buildChatTools>
 
 const recipePatchSchema = z
     .object({
-        titleDe: z
-            .string()
+        title: optionalLocaleMapSchema()
             .optional()
-            .describe('German title. Omit to keep current.'),
-        titleEn: z
-            .string()
+            .describe(
+                'Title per locale. Omit locales to keep current; provide a string to set.',
+            ),
+        notes: optionalLocaleMapSchema()
             .optional()
-            .describe('English title. Omit to keep current.'),
-        notesDe: z
-            .string()
-            .nullable()
-            .optional()
-            .describe('German notes. Null to clear, omit to keep current.'),
-        notesEn: z.string().nullable().optional().describe('English notes.'),
+            .describe('Notes per locale.'),
         cuisineKey: z
             .string()
             .optional()
@@ -1051,12 +1011,7 @@ const recipePatchSchema = z
                 'Full replacement list of ingredients. Include all rows, even unchanged ones.',
             ),
         steps: z
-            .array(
-                z.object({
-                    textDe: z.string().nullable(),
-                    textEn: z.string().nullable(),
-                }),
-            )
+            .array(z.object({ text: optionalLocaleMapSchema() }))
             .optional()
             .describe(
                 'Full replacement list of steps. Include all steps, even unchanged ones.',
@@ -1068,8 +1023,11 @@ const recipePatchSchema = z
 
 const ingredientPatchSchema = z
     .object({
-        canonicalDe: z.string().optional(),
-        canonicalEn: z.string().optional(),
+        canonical: optionalLocaleMapSchema()
+            .optional()
+            .describe(
+                'Canonical name per locale. Omit locales to keep current.',
+            ),
         role: z.enum(['starch', 'vegetable', 'protein', 'none']).optional(),
         density: z
             .number()
@@ -1079,10 +1037,10 @@ const ingredientPatchSchema = z
             .describe('Grams per millilitre. Null to clear.'),
         notes: z.string().nullable().optional(),
         aliases: z
-            .array(z.string())
+            .array(z.object({ text: optionalLocaleMapSchema() }))
             .optional()
             .describe(
-                'Full replacement list of aliases. Include existing aliases plus new ones.',
+                'Full replacement list of alias groups. Each group has per-locale variants.',
             ),
         countUnits: z
             .array(
@@ -1117,10 +1075,12 @@ export const DETAIL_PAGE_CLIENT_TOOL_DEFS = {
 } as const
 
 export const newRecipeDraftSchema = z.object({
-    titleDe: z.string().describe('German title. Required.'),
-    titleEn: z.string().describe('English title. Required.'),
-    notesDe: z.string().nullable(),
-    notesEn: z.string().nullable(),
+    title: requiredLocaleMapSchema().describe(
+        'Title per locale; all supported locales required.',
+    ),
+    notes: optionalLocaleMapSchema().describe(
+        'Notes per locale; omit a locale if empty.',
+    ),
     cuisineKey: z
         .string()
         .describe(
@@ -1141,12 +1101,7 @@ export const newRecipeDraftSchema = z.object({
             unit: z.string().nullable(),
         }),
     ),
-    steps: z.array(
-        z.object({
-            textDe: z.string().nullable(),
-            textEn: z.string().nullable(),
-        }),
-    ),
+    steps: z.array(z.object({ text: requiredLocaleMapSchema() })),
 })
 
 export type NewRecipeDraft = z.infer<typeof newRecipeDraftSchema>

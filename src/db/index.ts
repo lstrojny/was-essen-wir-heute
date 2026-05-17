@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import { v7 as uuidv7 } from 'uuid'
 import { foldForMatch } from '@/ingredients/name-match'
 import * as schema from './schema'
 
@@ -18,66 +19,166 @@ sqlite.pragma('foreign_keys = ON')
 export const db = drizzle({ client: sqlite, schema })
 
 migrate(db, { migrationsFolder: join(process.cwd(), 'drizzle', 'migrations') })
+rewriteLegacyTranslatedStringIds()
 repairFoldedValues()
+backfillIngredientLookupFoldedIfEmpty()
 
 /**
- * Recomputes the pre-computed `*_folded` columns whenever they drift from
- * `foldForMatch(source)`. The initial migration backfilled via SQLite's
- * ASCII-only `lower()`, so non-ASCII rows (umlauts, ß, diacritics) need a
- * one-time refresh; this also self-heals if the fold algorithm ever
- * changes. Runs once per process; catalog is family-sized so this is
- * cheap.
+ * Migration 0008 creates `ingredient_lookup_folded` empty; rebuild from
+ * canonical and alias translated_strings on first boot if it's still empty.
+ * On every subsequent canonical/alias write the per-ingredient rebuild
+ * (`rebuildIngredientLookupFolded`) keeps it current.
+ */
+function backfillIngredientLookupFoldedIfEmpty() {
+    const count = sqlite
+        .prepare('SELECT COUNT(*) AS c FROM ingredient_lookup_folded')
+        .get() as { c: number }
+    if (count.c > 0) return
+    type Row = {
+        ingredient_id: string
+        kind: 'canonical' | 'alias'
+        translated_string_id: string
+        locale: string
+        string_folded: string
+    }
+    const canonicalRows = sqlite
+        .prepare(
+            `SELECT it.ingredient_id, 'canonical' AS kind,
+                    it.translated_string_id, ts.locale, ts.string_folded
+             FROM ingredients_translated it
+             JOIN translated_strings ts
+               ON ts.id = it.translated_string_id
+             WHERE it.unit_code = 'canonical'`,
+        )
+        .all() as Row[]
+    const aliasRows = sqlite
+        .prepare(
+            `SELECT ia.ingredient_id, 'alias' AS kind,
+                    ia.translated_string_id, ts.locale, ts.string_folded
+             FROM ingredients_aliases ia
+             JOIN translated_strings ts
+               ON ts.id = ia.translated_string_id`,
+        )
+        .all() as Row[]
+    const insert = sqlite.prepare(
+        `INSERT OR IGNORE INTO ingredient_lookup_folded
+            (string_folded, kind, ingredient_id, translated_string_id, locale)
+         VALUES (?, ?, ?, ?, ?)`,
+    )
+    const txn = sqlite.transaction((rows: Row[]) => {
+        for (const r of rows) {
+            insert.run(
+                r.string_folded,
+                r.kind,
+                r.ingredient_id,
+                r.translated_string_id,
+                r.locale,
+            )
+        }
+    })
+    txn([...canonicalRows, ...aliasRows])
+    // eslint-disable-next-line no-console
+    console.log(
+        `[db] backfilled ingredient_lookup_folded: ${canonicalRows.length} canonical + ${aliasRows.length} alias rows`,
+    )
+}
+
+/**
+ * Migration 0008 backfilled `translated_strings.id` with deterministic
+ * `<parent_id>__<unit_code>` strings so the SQL was debuggable. New writes
+ * mint UUIDv7 via `newTranslatedStringGroupId`. This hook rewrites any
+ * legacy `__`-suffixed ids to fresh UUIDv7s on first boot, then becomes a
+ * no-op. Updates every join table that references a group id.
+ */
+function rewriteLegacyTranslatedStringIds() {
+    const legacy = sqlite
+        .prepare(
+            "SELECT DISTINCT id FROM translated_strings WHERE id LIKE '%\\_\\_%' ESCAPE '\\'",
+        )
+        .all() as { id: string }[]
+    if (legacy.length === 0) return
+    const update = (table: string, column: string) =>
+        sqlite.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${column} = ?`)
+    const stmts = {
+        translated_strings: sqlite.prepare(
+            'UPDATE translated_strings SET id = ? WHERE id = ?',
+        ),
+        recipes_translated: update(
+            'recipes_translated',
+            'translated_string_id',
+        ),
+        recipe_steps_translated: update(
+            'recipe_steps_translated',
+            'translated_string_id',
+        ),
+        ingredients_translated: update(
+            'ingredients_translated',
+            'translated_string_id',
+        ),
+        cuisines_translated: update(
+            'cuisines_translated',
+            'translated_string_id',
+        ),
+        ingredients_aliases: update(
+            'ingredients_aliases',
+            'translated_string_id',
+        ),
+        ingredient_lookup_folded: update(
+            'ingredient_lookup_folded',
+            'translated_string_id',
+        ),
+    }
+    const rewrite = sqlite.transaction((rows: { id: string }[]) => {
+        for (const { id: oldId } of rows) {
+            const newId = uuidv7()
+            stmts.translated_strings.run(newId, oldId)
+            stmts.recipes_translated.run(newId, oldId)
+            stmts.recipe_steps_translated.run(newId, oldId)
+            stmts.ingredients_translated.run(newId, oldId)
+            stmts.cuisines_translated.run(newId, oldId)
+            stmts.ingredients_aliases.run(newId, oldId)
+            stmts.ingredient_lookup_folded.run(newId, oldId)
+        }
+    })
+    rewrite(legacy)
+    // eslint-disable-next-line no-console
+    console.log(
+        `[db] rewrote ${legacy.length} legacy translated_strings group ids to uuidv7`,
+    )
+}
+
+/**
+ * Recomputes `translated_strings.string_folded` whenever it drifts from
+ * `foldForMatch(string)`. Migration 0008 backfilled via SQLite's ASCII-only
+ * `lower()`, so non-ASCII rows (umlauts, ß, diacritics) need a one-time
+ * refresh; this also self-heals if the fold algorithm ever changes. Runs
+ * once per process; the catalog is family-sized so this is cheap.
  */
 function repairFoldedValues() {
-    type IngredientRow = {
+    type TranslatedStringRow = {
         id: string
-        canonical_de: string | null
-        canonical_en: string | null
-        canonical_de_folded: string | null
-        canonical_en_folded: string | null
+        locale: string
+        string: string
+        string_folded: string
     }
-    const ingredientRows = sqlite
+    const rows = sqlite
         .prepare(
-            'SELECT id, canonical_de, canonical_en, canonical_de_folded, canonical_en_folded FROM ingredients',
+            'SELECT id, locale, string, string_folded FROM translated_strings',
         )
-        .all() as IngredientRow[]
-    const updateIngredient = sqlite.prepare(
-        'UPDATE ingredients SET canonical_de_folded = ?, canonical_en_folded = ? WHERE id = ?',
+        .all() as TranslatedStringRow[]
+    const update = sqlite.prepare(
+        'UPDATE translated_strings SET string_folded = ? WHERE id = ? AND locale = ?',
     )
-    let ingredientsFixed = 0
-    for (const row of ingredientRows) {
-        const de = row.canonical_de ? foldForMatch(row.canonical_de) : null
-        const en = row.canonical_en ? foldForMatch(row.canonical_en) : null
-        if (de !== row.canonical_de_folded || en !== row.canonical_en_folded) {
-            updateIngredient.run(de, en, row.id)
-            ingredientsFixed++
+    let fixed = 0
+    for (const row of rows) {
+        const folded = foldForMatch(row.string)
+        if (folded !== row.string_folded) {
+            update.run(folded, row.id, row.locale)
+            fixed++
         }
     }
-
-    type AliasRow = {
-        id: string
-        alias: string
-        alias_folded: string | null
-    }
-    const aliasRows = sqlite
-        .prepare('SELECT id, alias, alias_folded FROM ingredient_aliases')
-        .all() as AliasRow[]
-    const updateAlias = sqlite.prepare(
-        'UPDATE ingredient_aliases SET alias_folded = ? WHERE id = ?',
-    )
-    let aliasesFixed = 0
-    for (const row of aliasRows) {
-        const folded = foldForMatch(row.alias)
-        if (folded !== row.alias_folded) {
-            updateAlias.run(folded, row.id)
-            aliasesFixed++
-        }
-    }
-
-    if (ingredientsFixed + aliasesFixed > 0) {
+    if (fixed > 0) {
         // eslint-disable-next-line no-console
-        console.log(
-            `[db] repaired folded columns: ${ingredientsFixed} ingredients, ${aliasesFixed} aliases`,
-        )
+        console.log(`[db] repaired ${fixed} translated_strings folds`)
     }
 }

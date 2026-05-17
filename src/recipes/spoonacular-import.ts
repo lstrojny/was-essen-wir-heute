@@ -32,14 +32,12 @@ export function spoonacularToFormInitial(
         }
     })
     const steps = (detail.analyzedInstructions ?? []).flatMap((block) =>
-        block.steps.map((s) => ({ textDe: '', textEn: s.step })),
+        block.steps.map((s) => ({ id: null, text: { en: s.step } })),
     )
     return {
         id: null,
-        titleDe: '',
-        titleEn: detail.title,
-        notesDe: '',
-        notesEn: '',
+        title: { en: detail.title },
+        notes: {},
         cuisineKey: asCuisineKey('other'),
         activeTimeMinutes: String(computeActiveTime(detail)),
         waitTimeMinutes: '',

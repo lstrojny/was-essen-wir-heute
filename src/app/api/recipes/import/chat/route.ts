@@ -1,7 +1,7 @@
 import { convertToModelMessages, type UIMessage } from 'ai'
 import { NextResponse } from 'next/server'
 import { getAuthenticatedSession } from '@/auth/session'
-import { resolveLocale } from '@/i18n/locale'
+import { resolveLocale } from '@/i18n/resolve-locale'
 import { chatAboutRecipe, type PageContext } from '@/llm/recipe-synthesis'
 import { buildChatTools } from '@/llm/tools'
 

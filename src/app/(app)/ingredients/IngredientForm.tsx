@@ -22,7 +22,10 @@ import {
     useMemo,
     useState,
 } from 'react'
-import type { IngredientId } from '@/db/ids'
+import type { IngredientId, IngredientsAliasId } from '@/db/ids'
+import type { LocaleMap } from '@/i18n/locale'
+import { resolveText } from '@/i18n/translatable'
+import { TranslateButton } from '../TranslateButton'
 import {
     type AliasCheckConflict,
     checkAliasAvailableAction,
@@ -40,20 +43,23 @@ import {
 
 const initial: IngredientFormState = {}
 
+export type IngredientFormAlias = {
+    id: IngredientsAliasId | null
+    text: LocaleMap
+}
+
 export type IngredientFormInitial = {
     id: IngredientId | null
-    canonicalDe: string
-    canonicalEn: string
+    canonical: LocaleMap
     role: 'starch' | 'vegetable' | 'protein' | 'none'
     density: string
     notes: string
-    aliases: string[]
+    aliases: IngredientFormAlias[]
     countUnits: Array<{ unit: string; gramsPerUnit: string }>
 }
 
 type ChangedIngredientFields = {
-    canonicalDe: boolean
-    canonicalEn: boolean
+    canonical: boolean
     role: boolean
     density: boolean
     notes: boolean
@@ -63,8 +69,7 @@ type ChangedIngredientFields = {
 
 function emptyChanged(): ChangedIngredientFields {
     return {
-        canonicalDe: false,
-        canonicalEn: false,
+        canonical: false,
         role: false,
         density: false,
         notes: false,
@@ -75,8 +80,10 @@ function emptyChanged(): ChangedIngredientFields {
 
 export function IngredientForm({
     initialValues,
+    activeLanguage,
 }: {
     initialValues: IngredientFormInitial
+    activeLanguage: 'de' | 'en'
 }) {
     const t = useTranslations()
     const router = useRouter()
@@ -85,12 +92,16 @@ export function IngredientForm({
             ? createIngredientAction
             : updateIngredientAction
     const [state, formAction, pending] = useActionState(action, initial)
-    const [canonicalDe, setCanonicalDe] = useState(initialValues.canonicalDe)
-    const [canonicalEn, setCanonicalEn] = useState(initialValues.canonicalEn)
+    const [canonical, setCanonical] = useState<LocaleMap>(
+        initialValues.canonical,
+    )
+    const canonicalActive = canonical[activeLanguage] ?? ''
     const [role, setRole] = useState(initialValues.role)
     const [density, setDensity] = useState(initialValues.density)
     const [notes, setNotes] = useState(initialValues.notes)
-    const [aliases, setAliases] = useState<string[]>(initialValues.aliases)
+    const [aliases, setAliases] = useState<IngredientFormAlias[]>(
+        initialValues.aliases,
+    )
     const [aliasDraft, setAliasDraft] = useState('')
     type AliasError =
         | { kind: 'text'; message: string }
@@ -101,12 +112,23 @@ export function IngredientForm({
         emptyChanged(),
     )
 
+    function setCanonicalActive(value: string) {
+        setCanonical((prev) => {
+            const next: LocaleMap = { ...prev }
+            if (value === '') {
+                delete next[activeLanguage]
+            } else {
+                next[activeLanguage] = value
+            }
+            return next
+        })
+    }
+
     function renderAliasError(err: AliasError | null): React.ReactNode {
         if (!err) return ' '
         if (err.kind === 'text') return err.message
         const { conflict } = err
         if (!conflict.ownerId || !conflict.ownerLabel) {
-            // Same-ingredient (canonical) or other case without a target.
             return conflict.reason === 'canonical-on-same-ingredient'
                 ? t('errors.aliasEqualsCanonical', { alias: conflict.alias })
                 : t('errors.aliasDuplicate', {
@@ -133,13 +155,13 @@ export function IngredientForm({
     function localAliasError(raw: string): AliasError | null {
         const folded = foldForMatch(raw)
         if (!folded) return null
-        if (aliases.some((a) => foldForMatch(a) === folded)) {
-            return { kind: 'text', message: t('errors.aliasAlreadyOnList') }
+        for (const a of aliases) {
+            const aliasText = a.text[activeLanguage]
+            if (aliasText && foldForMatch(aliasText) === folded) {
+                return { kind: 'text', message: t('errors.aliasAlreadyOnList') }
+            }
         }
-        if (
-            (canonicalDe && foldForMatch(canonicalDe) === folded) ||
-            (canonicalEn && foldForMatch(canonicalEn) === folded)
-        ) {
+        if (canonicalActive && foldForMatch(canonicalActive) === folded) {
             return {
                 kind: 'text',
                 message: t('errors.aliasEqualsCanonical', { alias: raw }),
@@ -156,18 +178,16 @@ export function IngredientForm({
     const snapshot = useMemo<IngredientFormSnapshot>(
         () => ({
             id: initialValues.id,
-            canonicalDe,
-            canonicalEn,
+            canonical,
             role,
             density,
             notes,
-            aliases,
+            aliases: aliases.map((a) => ({ id: a.id, text: { ...a.text } })),
             countUnits,
         }),
         [
             initialValues.id,
-            canonicalDe,
-            canonicalEn,
+            canonical,
             role,
             density,
             notes,
@@ -179,19 +199,15 @@ export function IngredientForm({
     const applyPatch = useCallback(
         (patch: IngredientFormPatch) => {
             const next = emptyChanged()
-            if (
-                patch.canonicalDe !== undefined &&
-                patch.canonicalDe !== canonicalDe
-            ) {
-                setCanonicalDe(patch.canonicalDe)
-                next.canonicalDe = true
-            }
-            if (
-                patch.canonicalEn !== undefined &&
-                patch.canonicalEn !== canonicalEn
-            ) {
-                setCanonicalEn(patch.canonicalEn)
-                next.canonicalEn = true
+            if (patch.canonical !== undefined) {
+                const merged: LocaleMap = { ...canonical, ...patch.canonical }
+                if (
+                    (merged[activeLanguage] ?? '') !==
+                    (canonical[activeLanguage] ?? '')
+                ) {
+                    next.canonical = true
+                }
+                setCanonical(merged)
             }
             if (patch.role !== undefined && patch.role !== role) {
                 setRole(patch.role)
@@ -215,13 +231,12 @@ export function IngredientForm({
                 }
             }
             if (patch.aliases !== undefined) {
-                const sameLen = patch.aliases.length === aliases.length
-                const sameContent =
-                    sameLen && patch.aliases.every((a, i) => a === aliases[i])
-                if (!sameContent) {
-                    setAliases(patch.aliases)
-                    next.aliases = true
-                }
+                const incoming = patch.aliases.map((a) => ({
+                    id: null,
+                    text: { ...a.text },
+                }))
+                setAliases(incoming)
+                next.aliases = true
             }
             if (patch.countUnits !== undefined) {
                 const mapped = patch.countUnits.map((cu) => ({
@@ -242,8 +257,7 @@ export function IngredientForm({
                 }
             }
             setChanged((prev) => ({
-                canonicalDe: prev.canonicalDe || next.canonicalDe,
-                canonicalEn: prev.canonicalEn || next.canonicalEn,
+                canonical: prev.canonical || next.canonical,
                 role: prev.role || next.role,
                 density: prev.density || next.density,
                 notes: prev.notes || next.notes,
@@ -251,7 +265,7 @@ export function IngredientForm({
                 countUnits: prev.countUnits || next.countUnits,
             }))
         },
-        [canonicalDe, canonicalEn, role, density, notes, aliases, countUnits],
+        [activeLanguage, canonical, role, density, notes, countUnits],
     )
 
     const bridge = useMemo(
@@ -276,8 +290,7 @@ export function IngredientForm({
             const result = await checkAliasAvailableAction(
                 v,
                 initialValues.id,
-                canonicalDe,
-                canonicalEn,
+                canonicalActive,
             )
             if (!result.ok) {
                 setAliasError({ kind: 'conflict', conflict: result.conflict })
@@ -292,7 +305,7 @@ export function IngredientForm({
         } finally {
             setCheckingAlias(false)
         }
-        setAliases([...aliases, v])
+        setAliases([...aliases, { id: null, text: { [activeLanguage]: v } }])
         setAliasDraft('')
         setAliasError(null)
         clearChange('aliases')
@@ -305,8 +318,8 @@ export function IngredientForm({
         }
     }
 
-    function removeAlias(target: string) {
-        setAliases(aliases.filter((a) => a !== target))
+    function removeAlias(index: number) {
+        setAliases(aliases.filter((_, i) => i !== index))
         setAliasError(null)
         clearChange('aliases')
     }
@@ -334,6 +347,15 @@ export function IngredientForm({
         clearChange('countUnits')
     }
 
+    function aliasDisplay(alias: IngredientFormAlias): {
+        text: string
+        isFallback: boolean
+    } {
+        const resolved = resolveText(alias.text, activeLanguage)
+        if (!resolved) return { text: '', isFallback: false }
+        return { text: resolved.text, isFallback: resolved.isFallback }
+    }
+
     return (
         <Stack spacing={3}>
             {state.error ? <Alert severity="error">{state.error}</Alert> : null}
@@ -358,28 +380,31 @@ export function IngredientForm({
                         <Typography variant="body2" color="text.secondary">
                             {t('ingredients.form.canonical.intro')}
                         </Typography>
-                        <TextField
-                            name="canonicalDe"
-                            label={t('ingredients.form.canonical.de')}
-                            value={canonicalDe}
-                            onChange={(e) => {
-                                setCanonicalDe(e.target.value)
-                                clearChange('canonicalDe')
-                            }}
-                            color={changed.canonicalDe ? 'warning' : undefined}
-                            focused={changed.canonicalDe || undefined}
-                        />
-                        <TextField
-                            name="canonicalEn"
-                            label={t('ingredients.form.canonical.en')}
-                            value={canonicalEn}
-                            onChange={(e) => {
-                                setCanonicalEn(e.target.value)
-                                clearChange('canonicalEn')
-                            }}
-                            color={changed.canonicalEn ? 'warning' : undefined}
-                            focused={changed.canonicalEn || undefined}
-                        />
+                        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                            <TextField
+                                name="canonical"
+                                label={t('ingredients.form.canonical.label')}
+                                value={canonicalActive}
+                                onChange={(e) => {
+                                    setCanonicalActive(e.target.value)
+                                    clearChange('canonical')
+                                }}
+                                color={changed.canonical ? 'warning' : undefined}
+                                focused={changed.canonical || undefined}
+                                sx={{ flexGrow: 1 }}
+                            />
+                            <TranslateButton
+                                value={canonical}
+                                activeLocale={activeLanguage}
+                                kind="ingredient.canonical"
+                                onApply={(merged) => {
+                                    setCanonical((prev) => ({ ...prev, ...merged }))
+                                    if (merged[activeLanguage] !== undefined) {
+                                        clearChange('canonical')
+                                    }
+                                }}
+                            />
+                        </Box>
                     </Stack>
                 </Paper>
 
@@ -464,14 +489,7 @@ export function IngredientForm({
                         <Typography variant="body2" color="text.secondary">
                             {t('ingredients.form.aliases.intro')}
                         </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {aliases.map((alias) => (
-                                <Chip
-                                    key={alias}
-                                    label={alias}
-                                    onDelete={() => removeAlias(alias)}
-                                />
-                            ))}
+                        <Stack spacing={1}>
                             {aliases.length === 0 ? (
                                 <Typography
                                     variant="caption"
@@ -480,7 +498,77 @@ export function IngredientForm({
                                     {t('ingredients.form.aliases.empty')}
                                 </Typography>
                             ) : null}
-                        </Box>
+                            {aliases.map((alias, index) => {
+                                const display = aliasDisplay(alias)
+                                return (
+                                    <Box
+                                        // biome-ignore lint/suspicious/noArrayIndexKey: alias identity is positional within form
+                                        key={index}
+                                        sx={{
+                                            display: 'flex',
+                                            gap: 1,
+                                            alignItems: 'flex-start',
+                                        }}
+                                    >
+                                        <Chip
+                                            label={
+                                                display.text ||
+                                                t(
+                                                    'ingredients.form.aliases.untranslated',
+                                                )
+                                            }
+                                            color={
+                                                display.isFallback
+                                                    ? 'warning'
+                                                    : undefined
+                                            }
+                                            variant={
+                                                display.isFallback
+                                                    ? 'outlined'
+                                                    : 'filled'
+                                            }
+                                            sx={{
+                                                flexGrow: 1,
+                                                justifyContent: 'flex-start',
+                                                fontStyle: display.isFallback
+                                                    ? 'italic'
+                                                    : undefined,
+                                            }}
+                                        />
+                                        <TranslateButton
+                                            value={alias.text}
+                                            activeLocale={activeLanguage}
+                                            kind="ingredient.alias"
+                                            onApply={(merged) => {
+                                                setAliases((prev) =>
+                                                    prev.map((a, i) =>
+                                                        i === index
+                                                            ? {
+                                                                  ...a,
+                                                                  text: {
+                                                                      ...a.text,
+                                                                      ...merged,
+                                                                  },
+                                                              }
+                                                            : a,
+                                                    ),
+                                                )
+                                                clearChange('aliases')
+                                            }}
+                                        />
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => removeAlias(index)}
+                                            aria-label={t(
+                                                'ingredients.form.aliases.remove',
+                                            )}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Box>
+                                )
+                            })}
+                        </Stack>
                         <Box sx={{ display: 'flex', gap: 1 }}>
                             <TextField
                                 label={t('ingredients.form.aliases.addLabel')}
@@ -510,13 +598,20 @@ export function IngredientForm({
                                 {t('ingredients.form.aliases.add')}
                             </Button>
                         </Box>
-                        {aliases.map((alias) => (
-                            <input
-                                key={alias}
-                                type="hidden"
-                                name="alias"
-                                value={alias}
-                            />
+                        {aliases.map((alias, index) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: serialised positionally
+                            <Stack key={index}>
+                                <input
+                                    type="hidden"
+                                    name="aliasId"
+                                    value={alias.id ?? ''}
+                                />
+                                <input
+                                    type="hidden"
+                                    name="alias"
+                                    value={alias.text[activeLanguage] ?? ''}
+                                />
+                            </Stack>
                         ))}
                     </Stack>
                 </Paper>
