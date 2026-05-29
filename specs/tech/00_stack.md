@@ -37,8 +37,9 @@ authenticate separately.
 - Formatter conventions: **4-space indentation**, **no trailing
   semicolons**, and **single quotes** in TypeScript/TSX.
 - **TypeScript strict mode** is on (`strict: true` in `tsconfig.json`).
-- A `typecheck` script runs `tsc --noEmit`. CI (when added) runs
-  `typecheck`, `lint`, and tests.
+- A `typecheck` script runs `tsc --noEmit`. A `test` script runs
+  `vitest run` (see `06_testing.md`). CI (when added) runs
+  `typecheck`, `lint`, and `test`.
 
 ## Web framework
 
@@ -91,6 +92,14 @@ authenticate separately.
   own login. Ratings are attached to user accounts.
 - Details (session model, password hashing, account management) live in
   `04_auth.md`.
+
+## Testing
+
+- **Vitest** is the unit-test runner. Tests live next to the code under
+  test as `<module>.test.ts`. The development flow is specification →
+  unit tests → code (see `AGENTS.md`).
+- Details (file layout, what gets tested, DB harness, mocking
+  conventions) live in `06_testing.md`.
 
 ## Frontend styling
 

@@ -7,21 +7,44 @@ import { v7 as uuidv7 } from 'uuid'
 import { foldForMatch } from '@/ingredients/name-match'
 import * as schema from './schema'
 
-const dbPath =
-    process.env.DATABASE_PATH ?? join(process.cwd(), 'data', 'app.db')
+/**
+ * Under vitest, the config builds a pre-migrated db snapshot in the main
+ * process and inlines it as base64 in `TEST_DB_SNAPSHOT_B64`. Workers
+ * inherit that env var when they spawn, so the snapshot is already in
+ * memory by the time this module loads — no fs op needed in the worker.
+ *
+ * Rationale: Stryker's vitest-runner forces `pool: threads` and runs the
+ * worker behind an IPC channel that owns a low fd. Any fs.openSync in the
+ * worker (drizzle's `migrate()` reading 11 .sql files, or even one
+ * `readFileSync` of a snapshot file) lands on the same descriptor and
+ * trips a libuv "fd opened in unmanaged mode twice" abort. The inline
+ * base64 keeps the worker entirely off the filesystem.
+ */
+const snapshotB64 = process.env.TEST_DB_SNAPSHOT_B64 ?? null
 
-mkdirSync(dirname(dbPath), { recursive: true })
-
-const sqlite = new Database(dbPath)
-sqlite.pragma('journal_mode = WAL')
-sqlite.pragma('foreign_keys = ON')
+let sqlite: Database.Database
+if (snapshotB64) {
+    sqlite = new Database(Buffer.from(snapshotB64, 'base64'))
+    sqlite.pragma('foreign_keys = ON')
+} else {
+    const dbPath =
+        process.env.DATABASE_PATH ?? join(process.cwd(), 'data', 'app.db')
+    mkdirSync(dirname(dbPath), { recursive: true })
+    sqlite = new Database(dbPath)
+    sqlite.pragma('journal_mode = WAL')
+    sqlite.pragma('foreign_keys = ON')
+}
 
 export const db = drizzle({ client: sqlite, schema })
 
-migrate(db, { migrationsFolder: join(process.cwd(), 'drizzle', 'migrations') })
-rewriteLegacyTranslatedStringIds()
-repairFoldedValues()
-backfillIngredientLookupFoldedIfEmpty()
+if (!snapshotB64) {
+    migrate(db, {
+        migrationsFolder: join(process.cwd(), 'drizzle', 'migrations'),
+    })
+    rewriteLegacyTranslatedStringIds()
+    repairFoldedValues()
+    backfillIngredientLookupFoldedIfEmpty()
+}
 
 /**
  * Migration 0008 creates `ingredient_lookup_folded` empty; rebuild from
