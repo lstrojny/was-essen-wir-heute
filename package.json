@@ -50,6 +50,6 @@
         "@vitest/coverage-v8": "^4.1.7",
         "drizzle-kit": "^0.31.10",
         "typescript": "^5",
-        "vitest": "^4.1.7"
+        "vitest": "^4.1.11"
     }
 }
